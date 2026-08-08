@@ -4,6 +4,7 @@ import 'package:flutter_midi_command/flutter_midi_command.dart';
 import 'effects_screen.dart';
 import 'models/tone_catalog.dart';
 import 'preset_screen.dart';
+import 'services/app_controller.dart';
 import 'services/midi_service.dart';
 import 'theme/app_theme.dart';
 import 'utils_screen.dart';
@@ -36,16 +37,19 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final MidiService _midi = MidiService();
+  late final AppController _controller = AppController(_midi, _channel);
   ToneCatalog? _catalog;
   String? _loadError;
   int _tab = 0;
   static const int _channel = 3;
   MidiDevice? _device;
+  bool _syncing = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _controller.load();
     _midi.onSetupChanged?.listen((change) {
       if (!mounted) return;
       _refreshDevices();
@@ -62,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _controller.dispose();
     _midi.dispose();
     super.dispose();
   }
@@ -85,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final connected = await _midi.connectBridge();
     if (!mounted) return;
     setState(() => _device = connected ? _midi.device : _device);
+    _syncAfterConnect();
   }
 
   Future<void> _refreshDevices() async {
@@ -104,11 +110,47 @@ class _HomeScreenState extends State<HomeScreen> {
     final connected = await _midi.connectBridge();
     if (!mounted) return;
     setState(() => _device = connected ? _midi.device : _device);
+    _syncAfterConnect();
   }
 
   void _disconnect() {
     _midi.disconnect();
     setState(() => _device = null);
+  }
+
+  /// After a successful connect, push the stored app state to the keyboard
+  /// so the GW-7 recalls the last setup automatically.
+  Future<void> _syncAfterConnect() async {
+    final catalog = _catalog;
+    if (_device == null || catalog == null) return;
+    await _controller.load();
+    if (!mounted) return;
+    _controller.syncToKeyboard(catalog);
+  }
+
+  Future<void> _syncNow() async {
+    final catalog = _catalog;
+    if (_device == null || catalog == null) {
+      _snack('Connect to the GW-7 first');
+      return;
+    }
+    if (_syncing) return;
+    setState(() => _syncing = true);
+    await _controller.save();
+    _controller.syncToKeyboard(catalog);
+    if (!mounted) return;
+    setState(() => _syncing = false);
+    _snack('Synced to GW-7');
+  }
+
+  void _snack(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(milliseconds: 1600),
+      ));
   }
 
   String _hex(int b) =>
@@ -143,13 +185,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             PresetScreen(
                               catalog: catalog,
-                              midi: _midi,
-                              channel: _channel,
+                              controller: _controller,
                             ),
                             EffectsScreen(
                               catalog: catalog,
-                              midi: _midi,
-                              channel: _channel,
+                              controller: _controller,
                             ),
                             UtilsScreen(
                               catalog: catalog,
@@ -240,6 +280,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: const Text('Disconnect'),
                 );
+          final sync = OutlinedButton.icon(
+            onPressed: _syncing ? null : _syncNow,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              foregroundColor: _device == null
+                  ? Theme.of(context).colorScheme.onSurfaceVariant
+                  : Theme.of(context).colorScheme.primary,
+            ),
+            icon: _syncing
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(Icons.sync_rounded,
+                    size: 16,
+                    color: _device == null
+                        ? Theme.of(context).colorScheme.onSurfaceVariant
+                        : Theme.of(context).colorScheme.primary),
+            label: const Text('SYNC'),
+          );
           if (narrow) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -255,6 +316,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Expanded(child: _statusPill()),
                     const SizedBox(width: 8),
+                    sync,
+                    const SizedBox(width: 8),
                     connect,
                   ],
                 ),
@@ -266,6 +329,8 @@ class _HomeScreenState extends State<HomeScreen> {
               titleBlock,
               const Spacer(),
               _statusPill(),
+              const SizedBox(width: 8),
+              sync,
               const SizedBox(width: 8),
               connect,
             ],

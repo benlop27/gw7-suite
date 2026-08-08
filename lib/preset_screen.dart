@@ -2,8 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'models/app_state.dart';
 import 'models/tone_catalog.dart';
-import 'services/midi_service.dart';
+import 'services/app_controller.dart';
 import 'theme/app_theme.dart';
 
 const Map<String, IconData> _bankIcons = {
@@ -36,49 +37,45 @@ class PresetScreen extends StatefulWidget {
   const PresetScreen({
     super.key,
     required this.catalog,
-    required this.midi,
-    required this.channel,
+    required this.controller,
   });
 
   final ToneCatalog catalog;
-  final MidiService midi;
-  final int channel;
+  final AppController controller;
 
   @override
   State<PresetScreen> createState() => _PresetScreenState();
 }
 
 class _PresetScreenState extends State<PresetScreen> {
-  late final MidiService _midi = widget.midi;
-
-  int _bankIndex = 0;
-  int? _selectedTone;
-  double _masterVolume = 100;
+  AppController get _controller => widget.controller;
 
   void _selectTone(ToneBank bank, Tone tone, int idx) {
-    setState(() {
-      _bankIndex = widget.catalog.banks.indexOf(bank);
-      _selectedTone = idx;
-    });
-    _midi.sendTone(
+    _controller.selectTone(
+      bankIndex: widget.catalog.banks.indexOf(bank),
+      toneIndex: idx,
       cc00: tone.cc00,
       cc32: tone.cc32,
       pc: tone.pc,
-      channel: widget.channel,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final catalog = widget.catalog;
-    return _content(catalog);
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) => _content(catalog),
+    );
   }
 
 
   Widget _content(ToneCatalog catalog) {
-    final bank = catalog.banks[_bankIndex];
-    final tone = _selectedTone != null && _selectedTone! < bank.tones.length
-        ? bank.tones[_selectedTone!]
+    final state = _controller.state;
+    final bank = catalog.banks[state.presetBankIndex];
+    final tone = state.presetToneIndex != null &&
+            state.presetToneIndex! < bank.tones.length
+        ? bank.tones[state.presetToneIndex!]
         : null;
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -90,7 +87,7 @@ class _PresetScreenState extends State<PresetScreen> {
               Expanded(
                 child: _lcd(
                   text: tone != null
-                      ? '${bank.name} ${(_selectedTone! + 1).toString().padLeft(3, '0')}'
+                      ? '${bank.name} ${(state.presetToneIndex! + 1).toString().padLeft(3, '0')}'
                       : '— / —',
                   big: true,
                 ),
@@ -99,7 +96,7 @@ class _PresetScreenState extends State<PresetScreen> {
               Expanded(
                 child: _lcd(
                   text: tone != null
-                      ? 'ch${widget.channel + 1} · ${tone.name}'
+                      ? 'ch${_controller.channel + 1} · ${tone.name}'
                       : '—',
                 ),
               ),
@@ -107,13 +104,13 @@ class _PresetScreenState extends State<PresetScreen> {
           ),
           const SizedBox(height: 14),
           _bankTabs(catalog),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(child: _toneGrid(bank)),
-                _volumeRail(),
+                _volumeRail(state),
               ],
             ),
           ),
@@ -122,7 +119,7 @@ class _PresetScreenState extends State<PresetScreen> {
     );
   }
 
-  Widget _volumeRail() {
+  Widget _volumeRail(AppState state) {
     final theme = Gw7Theme.of(context);
     return Container(
       width: 64,
@@ -161,19 +158,16 @@ class _PresetScreenState extends State<PresetScreen> {
                   ),
                 ),
                 child: Slider(
-                  value: _masterVolume,
+                  value: state.masterVolume.toDouble(),
                   min: 0,
                   max: 127,
-                  onChanged: (v) {
-                    setState(() => _masterVolume = v);
-                    _midi.sendMasterVolume(v.round());
-                  },
+                  onChanged: (v) => _controller.setMasterVolume(v.round()),
                 ),
               ),
             ),
           ),
           Text(
-            '${_masterVolume.round()}',
+            '${state.masterVolume}',
             style: TextStyle(
               fontFamily: Gw7Fonts.of(context).mono,
               fontSize: 14,
@@ -231,12 +225,9 @@ class _PresetScreenState extends State<PresetScreen> {
               itemBuilder: (context, i) {
                 final idx = r * rowCount + i;
                 final bank = banks[idx];
-                final active = idx == _bankIndex;
+                final active = idx == _controller.state.presetBankIndex;
                 return GestureDetector(
-                  onTap: () => setState(() {
-                    _bankIndex = idx;
-                    _selectedTone = null;
-                  }),
+                  onTap: () => _controller.selectBank(idx),
                   child: Container(
                     alignment: Alignment.center,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -321,7 +312,7 @@ class _PresetScreenState extends State<PresetScreen> {
             itemCount: bank.tones.length,
             itemBuilder: (context, idx) {
               final tone = bank.tones[idx];
-              final selected = idx == _selectedTone;
+              final selected = idx == _controller.state.presetToneIndex;
               return GestureDetector(
                 onTap: () => _selectTone(bank, tone, idx),
                 child: Container(

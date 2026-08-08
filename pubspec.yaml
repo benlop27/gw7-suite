@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_midi_command: ^1.0.9
   flutter_midi_command_ble: ^1.0.9
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:

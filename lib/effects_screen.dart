@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'models/tone_catalog.dart';
-import 'services/midi_service.dart';
+import 'services/app_controller.dart';
 import 'theme/app_theme.dart';
 
 const Map<String, IconData> _panelIcons = {
@@ -24,13 +24,11 @@ class EffectsScreen extends StatefulWidget {
   const EffectsScreen({
     super.key,
     required this.catalog,
-    required this.midi,
-    required this.channel,
+    required this.controller,
   });
 
   final ToneCatalog catalog;
-  final MidiService midi;
-  final int channel;
+  final AppController controller;
 
   @override
   State<EffectsScreen> createState() => _EffectsScreenState();
@@ -38,158 +36,99 @@ class EffectsScreen extends StatefulWidget {
 
 class _EffectsScreenState extends State<EffectsScreen> {
   late final EffectInfo _fx = widget.catalog.effects;
-
-  bool _reverbOn = false;
-  bool _chorusOn = false;
-  bool _mfxOn = false;
-
-  int _reverbType = 0;
-  int _reverbTime = 0;
-  static const int _reverbSend = 40;
-
-  int _chorusType = 0;
-  int _chorusRate = 0;
-  int _chorusDepth = 0;
-  int _chorusFeedback = 0;
-  static const int _chorusSendDefault = 40;
-  int _chorusSend = _chorusSendDefault;
-
-  int _mfxType = 0;
-  int _mfxBalance = 0;
-  int _mfxLevel = 0;
-
-  void _sendReverb(int param, int value) =>
-      widget.midi.sendReverb(param: param, value: value);
-
-  void _sendChorus(int param, int value) =>
-      widget.midi.sendChorus(param: param, value: value);
-
-  void _setReverbOn(bool on) {
-    setState(() => _reverbOn = on);
-    widget.midi.sendPartReverbSend(
-      channel: widget.channel,
-      value: on ? _reverbSend : 0,
-    );
-    if (on) {
-      _sendReverb(0, _reverbType);
-      _sendReverb(1, _reverbTime);
-    }
-  }
-
-  void _setChorusOn(bool on) {
-    setState(() => _chorusOn = on);
-    widget.midi.sendPartChorusSend(
-      channel: widget.channel,
-      value: on ? _chorusSend : 0,
-    );
-    if (on) {
-      _sendChorus(0, _chorusType);
-      _sendChorus(1, _chorusRate);
-      _sendChorus(2, _chorusDepth);
-      _sendChorus(3, _chorusFeedback);
-      _sendChorus(4, _chorusSend);
-    }
-  }
-
-  void _setMfxOn(bool on) {
-    setState(() => _mfxOn = on);
-    widget.midi.sendPartMfxAssign(channel: widget.channel, value: on ? 1 : 0);
-    if (on) {
-      widget.midi.sendMfx(offset: 0x00, value: _mfxType);
-      widget.midi.sendMfx(offset: _fx.mfxBalanceOffset, value: _mfxBalance);
-      widget.midi.sendMfx(offset: _fx.mfxLevelOffset, value: _mfxLevel);
-    }
-  }
+  AppController get _controller => widget.controller;
 
   @override
   Widget build(BuildContext context) {
     final modules = <Widget>[
       _panel(
         title: 'REVERB',
-        on: _reverbOn,
-        onToggle: _setReverbOn,
+        on: _controller.state.reverbOn,
+        onToggle: _controller.setReverbOn,
         children: [
-          _typeRow(label: 'TYPE', types: _fx.reverbTypes, value: _reverbType,
-            onChanged: (v) { _reverbType = v; _sendReverb(0, v); }),
+          _typeRow(label: 'TYPE', types: _fx.reverbTypes,
+            value: _controller.state.reverbType,
+            onChanged: _controller.setReverbType),
           _sliderArea([
-            _ParamSlider(label: 'TIME', value: _reverbTime,
-              onChanged: (v) => setState(() { _reverbTime = v; _sendReverb(1, v); })),
+            _ParamSlider(label: 'TIME', value: _controller.state.reverbTime,
+              onChanged: _controller.setReverbTime),
           ]),
         ],
       ),
       _panel(
         title: 'CHORUS',
-        on: _chorusOn,
-        onToggle: _setChorusOn,
+        on: _controller.state.chorusOn,
+        onToggle: _controller.setChorusOn,
         children: [
-          _typeRow(label: 'TYPE', types: _fx.chorusTypes, value: _chorusType,
-            onChanged: (v) { _chorusType = v; _sendChorus(0, v); }),
+          _typeRow(label: 'TYPE', types: _fx.chorusTypes,
+            value: _controller.state.chorusType,
+            onChanged: _controller.setChorusType),
           _sliderArea([
-            _ParamSlider(label: 'RATE', value: _chorusRate,
-              onChanged: (v) => setState(() { _chorusRate = v; _sendChorus(1, v); })),
-            _ParamSlider(label: 'DEPTH', value: _chorusDepth,
-              onChanged: (v) => setState(() { _chorusDepth = v; _sendChorus(2, v); })),
-            _ParamSlider(label: 'FEEDBACK', value: _chorusFeedback,
-              onChanged: (v) => setState(() { _chorusFeedback = v; _sendChorus(3, v); })),
-            _ParamSlider(label: 'SEND', value: _chorusSend,
-              onChanged: (v) => setState(() {
-                _chorusSend = v;
-                _sendChorus(4, v);
-                widget.midi.sendPartChorusSend(channel: widget.channel, value: v);
-              })),
+            _ParamSlider(label: 'RATE', value: _controller.state.chorusRate,
+              onChanged: _controller.setChorusRate),
+            _ParamSlider(label: 'DEPTH', value: _controller.state.chorusDepth,
+              onChanged: _controller.setChorusDepth),
+            _ParamSlider(label: 'FEEDBACK', value: _controller.state.chorusFeedback,
+              onChanged: _controller.setChorusFeedback),
+            _ParamSlider(label: 'SEND', value: _controller.state.chorusSend,
+              onChanged: _controller.setChorusSend),
           ]),
         ],
       ),
       _panel(
         title: 'INSERTION MFX',
-        on: _mfxOn,
-        onToggle: _setMfxOn,
+        on: _controller.state.mfxOn,
+        onToggle: _controller.setMfxOn,
         children: [
-          _typeDropdown(label: 'TYPE', types: _fx.mfxTypes, value: _mfxType,
-            onChanged: (v) { _mfxType = v; widget.midi.sendMfx(offset: 0x00, value: v); }),
+          _typeDropdown(label: 'TYPE', types: _fx.mfxTypes,
+            value: _controller.state.mfxType,
+            onChanged: _controller.setMfxType),
           _sliderArea([
-            _ParamSlider(label: 'BALANCE', value: _mfxBalance,
-              onChanged: (v) => setState(() { _mfxBalance = v; widget.midi.sendMfx(offset: _fx.mfxBalanceOffset, value: v); })),
-            _ParamSlider(label: 'LEVEL', value: _mfxLevel,
-              onChanged: (v) => setState(() { _mfxLevel = v; widget.midi.sendMfx(offset: _fx.mfxLevelOffset, value: v); })),
+            _ParamSlider(label: 'BALANCE', value: _controller.state.mfxBalance,
+              onChanged: (v) => _controller.setMfxBalance(v, offset: _fx.mfxBalanceOffset)),
+            _ParamSlider(label: 'LEVEL', value: _controller.state.mfxLevel,
+              onChanged: (v) => _controller.setMfxLevel(v, offset: _fx.mfxLevelOffset)),
           ]),
         ],
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final cols = width >= 1200 ? 3 : 1;
-        final rows = <Widget>[];
-        for (int i = 0; i < modules.length; i += cols) {
-          final rowModules = modules.sublist(
-            i,
-            math.min(i + cols, modules.length),
-          );
-          rows.add(Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (int j = 0; j < rowModules.length; j++) ...[
-                if (j > 0) const SizedBox(width: 12),
-                Expanded(child: rowModules[j]),
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) => LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final cols = width >= 1200 ? 3 : 1;
+          final rows = <Widget>[];
+          for (int i = 0; i < modules.length; i += cols) {
+            final rowModules = modules.sublist(
+              i,
+              math.min(i + cols, modules.length),
+            );
+            rows.add(Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (int j = 0; j < rowModules.length; j++) ...[
+                  if (j > 0) const SizedBox(width: 12),
+                  Expanded(child: rowModules[j]),
+                ],
+                if (rowModules.length < cols)
+                  for (int j = rowModules.length; j < cols; j++)
+                    const Expanded(child: SizedBox()),
               ],
-              if (rowModules.length < cols)
-                for (int j = rowModules.length; j < cols; j++)
-                  const Expanded(child: SizedBox()),
+            ));
+          }
+          return ListView(
+            padding: const EdgeInsets.all(14),
+            children: [
+              for (int i = 0; i < rows.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                rows[i],
+              ],
             ],
-          ));
-        }
-        return ListView(
-          padding: const EdgeInsets.all(14),
-          children: [
-            for (int i = 0; i < rows.length; i++) ...[
-              if (i > 0) const SizedBox(height: 12),
-              rows[i],
-            ],
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -446,10 +385,7 @@ class _EffectsScreenState extends State<EffectsScreen> {
     final selected = t.value == value;
     final theme = Gw7Theme.of(context);
     return GestureDetector(
-      onTap: () {
-        onChanged(t.value);
-        setState(() {});
-      },
+      onTap: () => onChanged(t.value),
       child: Container(
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

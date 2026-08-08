@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_midi_command/flutter_midi_command_messages.dart';
 
+import 'package:gw7_midi/models/app_state.dart';
 import 'package:gw7_midi/models/tone_catalog.dart';
 
 void main() {
@@ -58,5 +59,36 @@ void main() {
     expect(fx.mfxTypes.any((n) => n.name == 'STEREO EQ' && n.category == 'EQ'), true);
     expect(fx.mfxBalanceOffset, 0x12);
     expect(fx.mfxLevelOffset, 0x16);
+  });
+
+  test('AppState defaults and JSON round-trip preserve state', () {
+    final d = AppState.defaults();
+    expect(d.masterVolume, 100);
+    expect(d.chorusSend, 40);
+    expect(d.presetToneIndex, null);
+
+    final custom = d.copyWith(
+      presetBankIndex: 12,
+      presetToneIndex: () => 7,
+      reverbOn: true,
+      reverbType: 8,
+      chorusSend: 64,
+      mfxType: 11,
+      mfxBalance: 50,
+      masterVolume: 80,
+    );
+    final round = AppState.fromJson(custom.toJson());
+    expect(round.presetBankIndex, 12);
+    expect(round.presetToneIndex, 7);
+    expect(round.reverbOn, true);
+    expect(round.reverbType, 8);
+    expect(round.chorusSend, 64);
+    expect(round.mfxType, 11);
+    expect(round.mfxBalance, 50);
+    expect(round.masterVolume, 80);
+
+    final cleared = round.copyWith(presetToneIndex: () => null);
+    expect(cleared.presetToneIndex, null);
+    expect(cleared.masterVolume, 80);
   });
 }
