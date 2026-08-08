@@ -21,6 +21,26 @@ Requires the Android SDK + JDK 21. See the repo-root `README.md` for the full
 toolchain (env vars) and the catalog regeneration pipeline
 (`make_gw7_catalog.py` → `assets/gw7_midi_catalog.json`).
 
+## Release signing
+
+`android/app/build.gradle.kts` reads `android/key.properties` if present
+(keystore path, store password, key alias, key password). Without it, release
+builds fall back to the debug signing key — fine for sideloading, not for store
+distribution. Never commit `key.properties` or `.jks` files (gitignored).
+
+## CI — GitHub Actions
+
+`.github/workflows/build-apk.yml` runs `analyze` + `test` + `build apk --release`
+on push to `main` and manual dispatch. Behavior:
+
+- **Every run** uploads `app-release.apk` as the `gw7-midi-apk` artifact.
+- **Tag push `v*`** also publishes the APK as a GitHub Release with auto-generated notes.
+- If the repo secrets below exist, the release APK is signed with the real
+  keystore; otherwise it's signed with the debug key.
+
+Set these secrets in the repo to get a properly signed release APK:
+`KEYSTORE_BASE64` (keystore base64-encoded), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
+
 ## Layout
 
 ```
