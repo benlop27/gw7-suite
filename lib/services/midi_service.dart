@@ -158,4 +158,48 @@ class MidiService {
     body.add(_checksum(addr + [value & 0x7f]));
     sendSysEx(body);
   }
+
+  /// Part key range low (DT1): `40 1x 1D <v>` — lowest key that part plays.
+  void sendPartKeyRangeLow({required int channel, required int note}) =>
+      _sendPartParam(channel: channel, low: 0x1d, base: 0x10, value: note);
+
+  /// Part key range high (DT1): `40 1x 1E <v>` — highest key that part plays.
+  void sendPartKeyRangeHigh({required int channel, required int note}) =>
+      _sendPartParam(channel: channel, low: 0x1e, base: 0x10, value: note);
+
+  /// Part octave/key shift (DT1): `40 1x 16 <v>`; range -24..+24 semitones,
+  /// encoded as `semitones + 0x40` (0x40 = 0).
+  void sendPartKeyShift({required int channel, required int semitones}) {
+    final clamped = semitones.clamp(-24, 24);
+    _sendPartParam(
+      channel: channel,
+      low: 0x16,
+      base: 0x10,
+      value: clamped + 0x40,
+    );
+  }
+
+  /// Sends a raw MIDI byte stream (used for System Realtime messages such as
+  /// Start FA / Continue FB / Stop FC, and System Common like Song Select).
+  void sendRaw(List<int> bytes) {
+    if (!connected || _device == null) {
+      lastMessage.value = 'No MIDI output — is the GW-7 connected?';
+      return;
+    }
+    final out = Uint8List.fromList(bytes);
+    _midi.sendData(out, deviceId: _device!.id);
+    lastMessage.value = 'TX ${out.map(_h).join(' ')}';
+  }
+
+  /// Selects a Music Style by number (System Common Song Select `F3 <n-1>`).
+  void sendStyle(int styleNumber) {
+    sendRaw([0xf3, (styleNumber - 1) & 0x7f]);
+  }
+
+  /// Backing track transport: Start `FA`, Continue `FB`, Stop `FC`.
+  void sendBackingStart() => sendRaw([0xfa]);
+
+  void sendBackingContinue() => sendRaw([0xfb]);
+
+  void sendBackingStop() => sendRaw([0xfc]);
 }

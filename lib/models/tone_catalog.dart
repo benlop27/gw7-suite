@@ -46,12 +46,14 @@ class ToneBank {
 class NamedValue {
   final int value;
   final String name;
+  final String? category;
 
-  const NamedValue({required this.value, required this.name});
+  const NamedValue({required this.value, required this.name, this.category});
 
   factory NamedValue.fromJson(Map<String, dynamic> json) => NamedValue(
         value: (json['value'] as num).toInt(),
         name: json['name'] as String,
+        category: json['category'] as String?,
       );
 }
 
@@ -135,10 +137,7 @@ class ToneCatalog {
     if (raw is List) {
       final out = raw
           .whereType<Map<String, dynamic>>()
-          .map((e) => NamedValue(
-                value: (e['value'] as num).toInt(),
-                name: e['name'] as String,
-              ))
+          .map((e) => NamedValue.fromJson(e))
           .toList();
       return out..sort((a, b) => a.value.compareTo(b.value));
     }

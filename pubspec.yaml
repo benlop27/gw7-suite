@@ -61,6 +61,14 @@ flutter:
   assets:
     - assets/gw7_midi_catalog.json
 
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Static-Regular.ttf
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Static-Regular.ttf
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
