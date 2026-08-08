@@ -7,6 +7,14 @@ over USB MIDI.
 Send path per tone: `B0 <ch> 00 <cc00>` (bank MSB) · `B0 <ch> 20 <cc32>`
 (bank LSB) · `C0 <ch> <pc-1>` (program change).
 
+> **Disclaimer:** This is an independent, unofficial project. It is not
+> affiliated with, endorsed by, or sponsored by Roland Corporation. "GW-7" is a
+> trademark of Roland, used nominatively to identify the device this tool
+> interoperates with. The tone-selection data is derived from public MIDI
+> specification documents. No Roland firmware, software, or copyrighted
+> material is included in this repository. Reverse-engineering for
+> interoperability purposes only. Use at your own risk.
+
 ## Build & test
 
 ```bash
