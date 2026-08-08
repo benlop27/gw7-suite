@@ -43,4 +43,18 @@ void main() {
     expect(t.cc32, 4);
     expect(t.pc, 105);
   });
+
+  test('effects catalog: reverb/chorus/MFX types parsed', () async {
+    final catalog = await ToneCatalog.load();
+    final fx = catalog.effects;
+    expect(fx.reverbTypes.any((n) => n.name == 'plate' && n.value == 8), true);
+    expect(
+      fx.chorusTypes.any((n) => n.name == 'flanger' && n.value == 5),
+      true,
+    );
+    expect(fx.mfxTypes.length, 23);
+    expect(fx.mfxTypes.first.name, 'OFF');
+    expect(fx.mfxBalanceOffset, 0x12);
+    expect(fx.mfxLevelOffset, 0x16);
+  });
 }

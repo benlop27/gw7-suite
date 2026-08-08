@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_midi_command/flutter_midi_command.dart';
 
@@ -5,17 +7,18 @@ import 'models/tone_catalog.dart';
 import 'services/midi_service.dart';
 
 class PresetScreen extends StatefulWidget {
-  const PresetScreen({super.key});
+  const PresetScreen({super.key, required this.catalog, required this.midi});
+
+  final ToneCatalog catalog;
+  final MidiService midi;
 
   @override
   State<PresetScreen> createState() => _PresetScreenState();
 }
 
 class _PresetScreenState extends State<PresetScreen> {
-  final MidiService _midi = MidiService();
+  late final MidiService _midi = widget.midi;
 
-  ToneCatalog? _catalog;
-  String? _loadError;
   int _bankIndex = 0;
   int? _selectedTone;
   int _channel = 0;
@@ -24,7 +27,6 @@ class _PresetScreenState extends State<PresetScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
     _midi.onSetupChanged?.listen((change) {
       if (!mounted) return;
       _refreshDevices();
@@ -37,20 +39,6 @@ class _PresetScreenState extends State<PresetScreen> {
       }
       _midi.lastRx.value = buf.toString();
     });
-  }
-
-  Future<void> _load() async {
-    try {
-      final catalog = await ToneCatalog.load();
-      if (!mounted) return;
-      setState(() {
-        _catalog = catalog;
-        _loadError = null;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _loadError = 'Catalog load failed: $e');
-    }
   }
 
   Future<void> _refreshDevices() async {
@@ -85,7 +73,7 @@ class _PresetScreenState extends State<PresetScreen> {
 
   void _selectTone(ToneBank bank, Tone tone, int idx) {
     setState(() {
-      _bankIndex = _catalog!.banks.indexOf(bank);
+      _bankIndex = widget.catalog.banks.indexOf(bank);
       _selectedTone = idx;
     });
     _midi.sendTone(
@@ -101,19 +89,13 @@ class _PresetScreenState extends State<PresetScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final catalog = _catalog;
+    final catalog = widget.catalog;
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
             _topBar(context),
-            Expanded(
-              child: _loadError != null
-                  ? _centerMessage(_loadError!)
-                  : catalog == null
-                      ? const Center(child: CircularProgressIndicator())
-                      : _content(catalog),
-            ),
+            Expanded(child: _content(catalog)),
             _footer(),
           ],
         ),
@@ -125,132 +107,169 @@ class _PresetScreenState extends State<PresetScreen> {
     return Container(
       color: const Color(0xFF0A0A0A),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          const Text(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final narrow = constraints.maxWidth < 560;
+          final title = const Text(
             'GW-7 PRESETS',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.5,
             ),
-          ),
-          const Spacer(),
-          ValueListenableBuilder<MidiStatus>(
-            valueListenable: _midi.status,
-            builder: (context, status, _) {
-              final Color ledColor;
-              if (status.error) {
-                ledColor = const Color(0xFF93000A);
-              } else if (status.ok) {
-                ledColor = const Color(0xFF41DDC2);
-              } else {
-                ledColor = const Color(0xFF333333);
-              }
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0E0E0E),
-                  border: Border.all(color: const Color(0xFF2D2D2D)),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: ledColor,
-                        shape: BoxShape.circle,
-                        boxShadow: status.ok || status.error
-                            ? [
-                                BoxShadow(
-                                  color: ledColor.withValues(alpha: 0.6),
-                                  blurRadius: 8,
-                                ),
-                              ]
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 150),
-                      child: Text(
-                        status.text,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 11,
-                          color: status.error
-                              ? const Color(0xFFFFB4AB)
-                              : status.ok
-                                  ? const Color(0xFF41DDC2)
-                                  : const Color(0xFF8A8A8A),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          if (_device == null)
-            ElevatedButton(
-              onPressed: _connect,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF6600),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Connect'),
-            )
-          else
-            OutlinedButton(
-              onPressed: _disconnect,
-              child: const Text('Disconnect'),
-            ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFF2D2D2D)),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          );
+          final channel = _channelSelector();
+          final connect = _device == null
+              ? ElevatedButton(
+                  onPressed: _connect,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF6600),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                  ),
+                  child: const Text('Connect'),
+                )
+              : OutlinedButton(
+                  onPressed: _disconnect,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                  ),
+                  child: const Text('Disconnect'),
+                );
+          if (narrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'CH ',
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 10,
-                    color: Color(0xFF8A8A8A),
-                  ),
-                ),
-                DropdownButton<int>(
-                  value: _channel,
-                  dropdownColor: const Color(0xFF0E0E0E),
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: Color(0xFFE5E2E1),
-                  ),
-                  underline: const SizedBox.shrink(),
-                  items: [
-                    for (int i = 0; i < 16; i++)
-                      DropdownMenuItem(
-                        value: i,
-                        child: Text('${i + 1}${i == 9 ? ' (drum)' : ''}'),
-                      ),
+                Row(
+                  children: [
+                    title,
+                    const Spacer(),
+                    channel,
                   ],
-                  onChanged: (v) => setState(() => _channel = v!),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: _statusPill()),
+                    const SizedBox(width: 8),
+                    connect,
+                  ],
                 ),
               ],
+            );
+          }
+          return Row(
+            children: [
+              title,
+              const Spacer(),
+              _statusPill(),
+              const SizedBox(width: 8),
+              channel,
+              const SizedBox(width: 8),
+              connect,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _statusPill() {
+    return ValueListenableBuilder<MidiStatus>(
+      valueListenable: _midi.status,
+      builder: (context, status, _) {
+        final Color ledColor;
+        if (status.error) {
+          ledColor = const Color(0xFF93000A);
+        } else if (status.ok) {
+          ledColor = const Color(0xFF41DDC2);
+        } else {
+          ledColor = const Color(0xFF333333);
+        }
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0E0E0E),
+            border: Border.all(color: const Color(0xFF2D2D2D)),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: ledColor,
+                  shape: BoxShape.circle,
+                  boxShadow: status.ok || status.error
+                      ? [
+                          BoxShadow(
+                            color: ledColor.withValues(alpha: 0.6),
+                            blurRadius: 8,
+                          ),
+                        ]
+                      : null,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  status.text,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    color: status.error
+                        ? const Color(0xFFFFB4AB)
+                        : status.ok
+                            ? const Color(0xFF41DDC2)
+                            : const Color(0xFF8A8A8A),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _channelSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFF2D2D2D)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'CH ',
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 10,
+              color: Color(0xFF8A8A8A),
             ),
+          ),
+          DropdownButton<int>(
+            value: _channel,
+            dropdownColor: const Color(0xFF0E0E0E),
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+              color: Color(0xFFE5E2E1),
+            ),
+            underline: const SizedBox.shrink(),
+            items: [
+              for (int i = 0; i < 16; i++)
+                DropdownMenuItem(
+                  value: i,
+                  child: Text('${i + 1}${i == 9 ? ' (drum)' : ''}'),
+                ),
+            ],
+            onChanged: (v) => setState(() => _channel = v!),
           ),
         ],
       ),
@@ -324,139 +343,161 @@ class _PresetScreenState extends State<PresetScreen> {
   }
 
   Widget _bankTabs(ToneCatalog catalog) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: catalog.banks.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 4),
-        itemBuilder: (context, i) {
-          final bank = catalog.banks[i];
-          final active = i == _bankIndex;
-          return GestureDetector(
-            onTap: () => setState(() {
-              _bankIndex = i;
-              _selectedTone = null;
-            }),
-            child: Container(
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: active
-                    ? const Color(0x1FFF6600)
-                    : const Color(0xFF0E0E0E),
-                border: Border.all(
-                  color: active
-                      ? const Color(0xFFFF6600)
-                      : const Color(0xFF2D2D2D),
-                ),
-                borderRadius: BorderRadius.circular(6),
-                boxShadow: active
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFFFF6600).withValues(
-                            alpha: 0.25,
-                          ),
-                          blurRadius: 10,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Text(
-                bank.name,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  color: active
-                      ? const Color(0xFFFFB596)
-                      : const Color(0xFF8A8A8A),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _toneGrid(ToneBank bank) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFF2D2D2D)),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: GridView.builder(
-        padding: const EdgeInsets.all(6),
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 110,
-          mainAxisSpacing: 4,
-          crossAxisSpacing: 4,
-          childAspectRatio: 1.6,
-        ),
-        itemCount: bank.tones.length,
-        itemBuilder: (context, idx) {
-          final tone = bank.tones[idx];
-          final selected = idx == _selectedTone;
-          return GestureDetector(
-            onTap: () => _selectTone(bank, tone, idx),
-            child: Container(
-              decoration: BoxDecoration(
-                color: selected
-                    ? const Color(0x26FF6600)
-                    : const Color(0xFF201F1F),
-                border: Border.all(
-                  color: selected
-                      ? const Color(0xFFFF6600)
-                      : const Color(0xFF2D2D2D),
-                ),
-                borderRadius: BorderRadius.circular(6),
-                boxShadow: selected
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFFFF6600).withValues(
-                            alpha: 0.3,
-                          ),
-                          blurRadius: 10,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '${tone.no}',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: selected
-                          ? const Color(0xFFFFB596)
-                          : const Color(0xFFE5E2E1),
+    final banks = catalog.banks;
+    final rowCount = (banks.length / 2).ceil();
+    return Column(
+      children: [
+        for (int r = 0; r < 2; r++) ...[
+          if (r > 0) const SizedBox(height: 4),
+          SizedBox(
+            height: 42,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: r == 0 ? rowCount : banks.length - rowCount,
+              separatorBuilder: (_, _) => const SizedBox(width: 4),
+              itemBuilder: (context, i) {
+                final idx = r * rowCount + i;
+                final bank = banks[idx];
+                final active = idx == _bankIndex;
+                return GestureDetector(
+                  onTap: () => setState(() {
+                    _bankIndex = idx;
+                    _selectedTone = null;
+                  }),
+                  child: Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: active
+                          ? const Color(0x1FFF6600)
+                          : const Color(0xFF0E0E0E),
+                      border: Border.all(
+                        color: active
+                            ? const Color(0xFFFF6600)
+                            : const Color(0xFF2D2D2D),
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: active
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFFFF6600).withValues(
+                                  alpha: 0.25,
+                                ),
+                                blurRadius: 10,
+                              ),
+                            ]
+                          : null,
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Text(
-                      tone.name,
-                      overflow: TextOverflow.ellipsis,
+                      bank.name,
                       style: TextStyle(
-                        fontSize: 10,
-                        color: selected
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                        color: active
                             ? const Color(0xFFFFB596)
                             : const Color(0xFF8A8A8A),
                       ),
                     ),
                   ),
-                ],
-              ),
+                );
+              },
             ),
-          );
-        },
-      ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _toneGrid(ToneBank bank) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final cols = width >= 900
+            ? 8
+            : width >= 600
+                ? 6
+                : width >= 400
+                    ? 4
+                    : 3;
+        return Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFF2D2D2D)),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: GridView.builder(
+            padding: const EdgeInsets.all(6),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: cols,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              childAspectRatio: 1.4,
+            ),
+            itemCount: bank.tones.length,
+            itemBuilder: (context, idx) {
+              final tone = bank.tones[idx];
+              final selected = idx == _selectedTone;
+              return GestureDetector(
+                onTap: () => _selectTone(bank, tone, idx),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? const Color(0x26FF6600)
+                        : const Color(0xFF201F1F),
+                    border: Border.all(
+                      color: selected
+                          ? const Color(0xFFFF6600)
+                          : const Color(0xFF2D2D2D),
+                    ),
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFFFF6600).withValues(
+                                alpha: 0.3,
+                              ),
+                              blurRadius: 10,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '${tone.no}',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: math.max(11, width / cols / 11),
+                          fontWeight: FontWeight.w700,
+                          color: selected
+                              ? const Color(0xFFFFB596)
+                              : const Color(0xFFE5E2E1),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          tone.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: math.max(9, width / cols / 15),
+                            color: selected
+                                ? const Color(0xFFFFB596)
+                                : const Color(0xFF8A8A8A),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -479,15 +520,4 @@ class _PresetScreenState extends State<PresetScreen> {
       ),
     );
   }
-
-  Widget _centerMessage(String text) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFFFFB4AB)),
-          ),
-        ),
-      );
 }

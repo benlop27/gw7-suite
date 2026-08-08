@@ -23,6 +23,9 @@ class MidiService {
 
   MidiDevice? _device;
 
+  /// Roland device ID used in SysEx messages (default 0x10).
+  int deviceId = 0x10;
+
   /// Led / status state exposed to the UI.
   final ValueNotifier<MidiStatus> status = ValueNotifier(const MidiStatus.idle());
 
@@ -62,6 +65,10 @@ class MidiService {
     status.value = MidiStatus.idle();
   }
 
+  void dispose() {
+    _midi.dispose();
+  }
+
   /// Sends CC0 (bank select MSB), CC32 (bank select LSB) then Program Change
   /// on the selected MIDI channel. [channel] is 0-based.
   void sendTone({
@@ -87,4 +94,68 @@ class MidiService {
   }
 
   String _h(int b) => '0${(b & 0xff).toRadixString(16).toUpperCase()}'.substring(1);
+
+  /// Sends a raw MIDI SysEx message: `F0 <body> F7`.
+  void sendSysEx(List<int> body) {
+    if (!connected || _device == null) {
+      lastMessage.value = 'No MIDI output — is the GW-7 connected?';
+      return;
+    }
+    final out = Uint8List.fromList([0xf0, ...body, 0xf7]);
+    _midi.sendData(out, deviceId: _device!.id);
+    lastMessage.value = 'TX ${out.map(_h).join(' ')}';
+  }
+
+  /// Roland checksum over address + data bytes of a DT1/RQ1 payload.
+  int _checksum(List<int> data) =>
+      (0x80 - (data.fold<int>(0, (a, b) => a + b) & 0x7f)) & 0x7f;
+
+  /// Universal Realtime reverb message.
+  /// `F0 7F 7F 04 05 01 01 01 01 01 <pp> <vv> F7`
+  void sendReverb({required int param, required int value}) {
+    sendSysEx([0x7f, 0x7f, 0x04, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01, param, value]);
+  }
+
+  /// Universal Realtime chorus message.
+  /// `F0 7F 7F 04 05 01 01 01 01 02 <pp> <vv> F7`
+  void sendChorus({required int param, required int value}) {
+    sendSysEx([0x7f, 0x7f, 0x04, 0x05, 0x01, 0x01, 0x01, 0x01, 0x02, param, value]);
+  }
+
+  /// Insertion MFX parameter (DT1): `F0 41 <dev> 42 12 40 03 <off> <v> <sum> F7`
+  void sendMfx({required int offset, required int value}) {
+    final addr = [0x40, 0x03, offset & 0x7f];
+    final body = [0x41, deviceId, 0x42, 0x12, ...addr, value & 0x7f];
+    body.add(_checksum(addr + [value & 0x7f]));
+    sendSysEx(body);
+  }
+
+  /// Part MFX assign (DT1): `F0 41 <dev> 42 12 40 4x 22 <v> <sum> F7`
+  /// [channel] is 0-based; channel 10 (index 9) nibbles to 0.
+  void sendPartMfxAssign({required int channel, required int value}) =>
+      _sendPartParam(channel: channel, low: 0x22, base: 0x40, value: value);
+
+  /// Part reverb send (DT1): `F0 41 <dev> 42 12 40 1x 22 <v> <sum> F7`
+  /// [channel] is 0-based; 0 = off (mutes reverb for the part).
+  void sendPartReverbSend({required int channel, required int value}) =>
+      _sendPartParam(channel: channel, low: 0x22, base: 0x10, value: value);
+
+  /// Part chorus send (DT1): `F0 41 <dev> 42 12 40 1x 21 <v> <sum> F7`
+  /// [channel] is 0-based; 0 = off (mutes chorus for the part).
+  void sendPartChorusSend({required int channel, required int value}) =>
+      _sendPartParam(channel: channel, low: 0x21, base: 0x10, value: value);
+
+  /// Generic part parameter DT1 write: `F0 41 <dev> 42 12 40 <bx> <low> <v> <sum> F7`
+  void _sendPartParam({
+    required int channel,
+    required int low,
+    required int base,
+    required int value,
+  }) {
+    final x = (channel & 0x0f) == 9 ? 0 : (channel & 0x0f) + 1;
+    final addr = [0x40, base | x, low];
+    final body = [0x41, deviceId, 0x42, 0x12, ...addr, value & 0x7f];
+    body.add(_checksum(addr + [value & 0x7f]));
+    sendSysEx(body);
+  }
 }

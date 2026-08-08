@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'effects_screen.dart';
 import 'models/tone_catalog.dart';
 import 'preset_screen.dart';
+import 'services/midi_service.dart';
 
 void main() {
   runApp(const Gw7App());
@@ -39,7 +41,94 @@ class Gw7App extends StatelessWidget {
           bodySmall: TextStyle(color: Color(0xFF8A8A8A)),
         ),
       ),
-      home: const PresetScreen(),
+      home: const HomeScreen(),
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final MidiService _midi = MidiService();
+  ToneCatalog? _catalog;
+  String? _loadError;
+  int _tab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _midi.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final catalog = await ToneCatalog.load();
+      if (!mounted) return;
+      setState(() {
+        _catalog = catalog;
+        _loadError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadError = 'Catalog load failed: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final catalog = _catalog;
+    return Scaffold(
+      body: _loadError != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  _loadError!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFFFFB4AB)),
+                ),
+              ),
+            )
+          : catalog == null
+              ? const Center(child: CircularProgressIndicator())
+              : IndexedStack(
+                  index: _tab,
+                  children: [
+                    PresetScreen(catalog: catalog, midi: _midi),
+                    EffectsScreen(catalog: catalog, midi: _midi),
+                  ],
+                ),
+      bottomNavigationBar: catalog == null
+          ? null
+          : NavigationBar(
+              backgroundColor: const Color(0xFF0A0A0A),
+              indicatorColor: const Color(0x33FF6600),
+              selectedIndex: _tab,
+              onDestinationSelected: (i) => setState(() => _tab = i),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.piano_outlined),
+                  selectedIcon: Icon(Icons.piano),
+                  label: 'Presets',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.tune_outlined),
+                  selectedIcon: Icon(Icons.tune),
+                  label: 'Effects',
+                ),
+              ],
+            ),
     );
   }
 }
