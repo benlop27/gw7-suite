@@ -39,7 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ToneCatalog? _catalog;
   String? _loadError;
   int _tab = 0;
-  int _channel = 0;
+  static const int _channel = 3;
   MidiDevice? _device;
 
   @override
@@ -74,10 +74,17 @@ class _HomeScreenState extends State<HomeScreen> {
         _catalog = catalog;
         _loadError = null;
       });
+      _autoConnect();
     } catch (e) {
       if (!mounted) return;
       setState(() => _loadError = 'Catalog load failed: $e');
     }
+  }
+
+  Future<void> _autoConnect() async {
+    final connected = await _midi.connectBridge();
+    if (!mounted) return;
+    setState(() => _device = connected ? _midi.device : _device);
   }
 
   Future<void> _refreshDevices() async {
@@ -94,15 +101,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _connect() async {
-    final devices = await _midi.scanDevices();
+    final connected = await _midi.connectBridge();
     if (!mounted) return;
-    if (devices.isEmpty) return;
-    final device = devices.firstWhere(
-      (d) => d.type == MidiDeviceType.serial,
-      orElse: () => devices.first,
-    );
-    setState(() => _device = device);
-    await _midi.connect(device);
+    setState(() => _device = connected ? _midi.device : _device);
   }
 
   void _disconnect() {
@@ -220,7 +221,6 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [title, subtitle],
           );
-          final channel = _channelSelector();
           final connect = _device == null
               ? ElevatedButton(
                   onPressed: _connect,
@@ -248,7 +248,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     titleBlock,
                     const Spacer(),
-                    channel,
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -267,8 +266,6 @@ class _HomeScreenState extends State<HomeScreen> {
               titleBlock,
               const Spacer(),
               _statusPill(),
-              const SizedBox(width: 8),
-              channel,
               const SizedBox(width: 8),
               connect,
             ],
@@ -333,47 +330,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _channelSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).colorScheme.surfaceContainerHigh),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'CH ',
-            style: TextStyle(
-              fontFamily: Gw7Fonts.of(context).mono,
-              fontSize: 10,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          DropdownButton<int>(
-            value: _channel,
-            dropdownColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-            style: TextStyle(
-              fontFamily: Gw7Fonts.of(context).mono,
-              fontSize: 11,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-            underline: const SizedBox.shrink(),
-            items: [
-              for (int i = 0; i < 16; i++)
-                DropdownMenuItem(
-                  value: i,
-                  child: Text('${i + 1}${i == 9 ? ' (drum)' : ''}'),
-                ),
-            ],
-            onChanged: (v) => setState(() => _channel = v!),
-          ),
-        ],
-      ),
     );
   }
 
