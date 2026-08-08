@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_midi_command/flutter_midi_command.dart';
+import 'package:flutter_midi_command_ble/flutter_midi_command_ble.dart';
 
 class MidiStatus {
   final String text;
@@ -12,6 +13,9 @@ class MidiStatus {
 
   const MidiStatus.ready() : this._('MIDI ready', ok: true);
 
+  const MidiStatus.searching(String name)
+      : this._('Searching for $name…');
+
   const MidiStatus.device(String name)
       : this._('Connected · $name', ok: true);
 
@@ -22,6 +26,10 @@ class MidiService {
   final MidiCommand _midi = MidiCommand();
 
   MidiDevice? _device;
+
+  /// Advertised name of the ESP32 BLE-MIDI bridge installed on the GW-7
+  /// (`BLEMIDI_CREATE_INSTANCE("Roland GW7", BLE_MIDI)`).
+  static const String bridgeName = 'Roland GW7';
 
   /// Roland device ID used in SysEx messages (default 0x10).
   int deviceId = 0x10;
@@ -35,11 +43,19 @@ class MidiService {
   /// Newest received raw byte buffer (for debug/diagnostics).
   final ValueNotifier<String> lastRx = ValueNotifier('');
 
+  MidiService() {
+    if (!kIsWeb) {
+      _midi.configureBleTransport(UniversalBleMidiTransport());
+    }
+  }
+
   Stream<MidiSetupChange>? get onSetupChanged => _midi.onMidiSetupChanged;
 
   Stream<MidiDataReceivedEvent>? get onDataReceived => _midi.onMidiDataReceived;
 
   bool get connected => _device?.connected ?? false;
+
+  MidiDevice? get device => _device;
 
   Future<List<MidiDevice>> scanDevices() async {
     final found = await _midi.devices ?? const <MidiDevice>[];
@@ -55,6 +71,88 @@ class MidiService {
     await _midi.connectToDevice(device);
     _device = device;
     status.value = MidiStatus.device(device.name);
+  }
+
+  /// Searches for the ESP32 "Roland GW7" BLE bridge and connects to it.
+  ///
+  /// Mobile (Android): starts Bluetooth, scans BLE MIDI peripherals and
+  /// matches the advertised bridge name.
+  /// Web: enumerates the browser's Web MIDI ports (the bridge must be exposed
+  /// by the OS — e.g. a paired BLE peripheral on macOS — since browsers cannot
+  /// open BLE MIDI directly).
+  /// Falls back to the first available MIDI device if the bridge is not found.
+  /// Returns `true` when a device was connected.
+  Future<bool> connectBridge({Duration scanWindow = const Duration(seconds: 6)}) async {
+    if (_device?.connected ?? false) return true;
+
+    status.value = MidiStatus.searching(bridgeName);
+    final device = await searchBridge(scanWindow: scanWindow);
+    if (device != null) {
+      try {
+        await connect(device);
+        return true;
+      } catch (e) {
+        status.value = MidiStatus.error('Could not connect to $bridgeName: $e');
+      }
+    }
+
+    final devices = await scanDevices();
+    if (devices.isEmpty) {
+      status.value = MidiStatus.error(
+        'GW-7 bridge not found — power on the "Roland GW7" bridge '
+        '${kIsWeb ? 'and make it visible to the browser' : 'and try again'}',
+      );
+      return false;
+    }
+    final fallback = devices.firstWhere(
+      (d) => d.type == MidiDeviceType.serial || d.type == MidiDeviceType.ble,
+      orElse: () => devices.first,
+    );
+    try {
+      await connect(fallback);
+      return true;
+    } catch (e) {
+      status.value = MidiStatus.error('Could not connect: $e');
+      return false;
+    }
+  }
+
+  /// Finds the "Roland GW7" bridge among the currently known devices.
+  Future<MidiDevice?> searchBridge({Duration scanWindow = const Duration(seconds: 6)}) async {
+    if (kIsWeb) {
+      return _findNamedDevice();
+    }
+    try {
+      await _midi.startBluetooth();
+      await _midi.waitUntilBluetoothIsInitialized();
+      if (_midi.bluetoothState != BluetoothState.poweredOn) {
+        status.value = MidiStatus.error('Bluetooth is not turned on');
+        return null;
+      }
+      await _midi.startScanningForBluetoothDevices();
+      final deadline = DateTime.now().add(scanWindow);
+      MidiDevice? found;
+      while (DateTime.now().isBefore(deadline)) {
+        found = await _findNamedDevice();
+        if (found != null) break;
+        await Future.delayed(const Duration(milliseconds: 400));
+      }
+      _midi.stopScanningForBluetoothDevices();
+      if (found != null) return found;
+    } catch (e) {
+      status.value = MidiStatus.error('Bluetooth scan failed: $e');
+    }
+    return null;
+  }
+
+  Future<MidiDevice?> _findNamedDevice() async {
+    final devices = await _midi.devices ?? const <MidiDevice>[];
+    for (final d in devices) {
+      if (d.name.trim().toLowerCase() == bridgeName.toLowerCase()) {
+        return d;
+      }
+    }
+    return null;
   }
 
   void disconnect() {
@@ -109,6 +207,12 @@ class MidiService {
   /// Roland checksum over address + data bytes of a DT1/RQ1 payload.
   int _checksum(List<int> data) =>
       (0x80 - (data.fold<int>(0, (a, b) => a + b) & 0x7f)) & 0x7f;
+
+  /// Universal Realtime master volume.
+  /// `F0 7F 7F 04 01 00 <v> F7` (0–127, default 100).
+  void sendMasterVolume(int value) {
+    sendSysEx([0x7f, 0x7f, 0x04, 0x01, 0x00, value & 0x7f]);
+  }
 
   /// Universal Realtime reverb message.
   /// `F0 7F 7F 04 05 01 01 01 01 01 <pp> <vv> F7`

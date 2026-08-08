@@ -53,6 +53,7 @@ class _PresetScreenState extends State<PresetScreen> {
 
   int _bankIndex = 0;
   int? _selectedTone;
+  double _masterVolume = 100;
 
   void _selectTone(ToneBank bank, Tone tone, int idx) {
     setState(() {
@@ -106,8 +107,80 @@ class _PresetScreenState extends State<PresetScreen> {
           ),
           const SizedBox(height: 14),
           _bankTabs(catalog),
-          const SizedBox(height: 12),
-          Expanded(child: _toneGrid(bank)),
+          const SizedBox(height: 14),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _toneGrid(bank)),
+                _volumeRail(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _volumeRail() {
+    final theme = Gw7Theme.of(context);
+    return Container(
+      width: 64,
+      margin: const EdgeInsets.only(left: 12),
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.border),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'VOL',
+            style: TextStyle(
+              fontFamily: Gw7Fonts.of(context).mono,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: theme.textDim,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Icon(Icons.volume_up_rounded, size: 20, color: theme.textDim),
+          const SizedBox(height: 6),
+          Expanded(
+            child: RotatedBox(
+              quarterTurns: 3,
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 10,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 14,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 28,
+                  ),
+                ),
+                child: Slider(
+                  value: _masterVolume,
+                  min: 0,
+                  max: 127,
+                  onChanged: (v) {
+                    setState(() => _masterVolume = v);
+                    _midi.sendMasterVolume(v.round());
+                  },
+                ),
+              ),
+            ),
+          ),
+          Text(
+            '${_masterVolume.round()}',
+            style: TextStyle(
+              fontFamily: Gw7Fonts.of(context).mono,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: theme.textDim,
+            ),
+          ),
         ],
       ),
     );
@@ -280,7 +353,7 @@ class _PresetScreenState extends State<PresetScreen> {
                         '${tone.no}',
                         style: TextStyle(
                           fontFamily: Gw7Fonts.of(context).mono,
-                          fontSize: math.max(11, width / cols / 11),
+                          fontSize: math.max(12, width / cols / 10),
                           fontWeight: FontWeight.w700,
                           color: selected ? theme.primary : theme.text,
                         ),
@@ -293,7 +366,7 @@ class _PresetScreenState extends State<PresetScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: Gw7Fonts.of(context).ui,
-                            fontSize: math.max(9, width / cols / 15),
+                            fontSize: math.max(10, width / cols / 13),
                             color: selected ? theme.primary : theme.textDim,
                           ),
                         ),
