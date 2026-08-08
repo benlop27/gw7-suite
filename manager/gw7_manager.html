@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GW-7 Presets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="gw7_manager.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">GW-7 PRESETS</div>
+  <div class="top-actions">
+    <div class="midi-cluster">
+      <span id="midi-led" class="led"></span>
+      <span id="midi-status" class="status">Web MIDI not initialised</span>
+    </div>
+    <label class="cluster">IN <select id="in-port"></select></label>
+    <label class="cluster">OUT <select id="out-port"></select></label>
+    <button id="btn-connect" class="btn primary">Connect</button>
+    <label class="cluster">CH <select id="chan"></select></label>
+  </div>
+</header>
+
+<main>
+  <div class="panel">
+    <div class="lcd-row">
+      <div class="lcd big" id="preset-lcd">— / —</div>
+      <div class="lcd" id="preset-name">—</div>
+    </div>
+    <div id="bank-tabs" class="seg"></div>
+    <div id="tone-grid"></div>
+  </div>
+</main>
+
+<footer class="statusbar"><span id="last-msg" class="dim"></span></footer>
+
+<script src="gw7_manager.js"></script>
+</body>
+</html>

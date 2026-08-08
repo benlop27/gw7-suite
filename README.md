@@ -49,6 +49,32 @@ on push to `main` and manual dispatch. Behavior:
 Set these secrets in the repo to get a properly signed release APK:
 `KEYSTORE_BASE64` (keystore base64-encoded), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
 
+## Web manager (browser version)
+
+The lightweight browser preset picker lives in `manager/` (copied from the main
+GW-7 suite project). It's a plain static page — no build step — using the Web
+MIDI API, so it works in Chrome/Edge. Serving it locally:
+
+```bash
+cd manager && python3 -m http.server 8000
+# open http://localhost:8000/gw7_manager.html
+```
+
+### GitHub Pages deployment
+
+`.github/workflows/deploy-web-manager.yml` deploys the `manager/` folder to
+GitHub Pages on push to `main` (when `manager/**` changes) or manual dispatch.
+The published page will be at:
+
+```
+https://benlop27.github.io/gw7-suite/manager/gw7_manager.html
+```
+
+One-time repo setup:
+1. **Settings → Pages → Build and deployment → Source:** `GitHub Actions`.
+2. Push `main` (or run the workflow manually). The page URL is shown on the
+   workflow's `deploy` job summary.
+
 ## Layout
 
 ```
@@ -59,4 +85,5 @@ lib/
   services/midi_service.dart MidiService — scan/connect/send via flutter_midi_command
 test/widget_test.dart       wire-format + catalog integrity tests
 assets/gw7_midi_catalog.json bundled catalog
+manager/                    static Web MIDI preset manager (deployed to GitHub Pages)
 ```
