@@ -1,4 +1,4 @@
-name: Deploy Web Manager to GitHub Pages
+name: Deploy Flutter Web to GitHub Pages
 
 on:
   workflow_dispatch:
@@ -6,7 +6,10 @@ on:
     branches:
       - main
     paths:
-      - 'manager/**'
+      - 'lib/**'
+      - 'web/**'
+      - 'assets/**'
+      - 'pubspec.yaml'
       - '.github/workflows/deploy-web-manager.yml'
 
 permissions:
@@ -28,13 +31,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build web
+        run: flutter build web
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: manager
+          path: build/web
 
       - name: Deploy to GitHub Pages
         id: deployment
