@@ -4,12 +4,33 @@ import 'package:flutter/material.dart';
 
 import 'models/tone_catalog.dart';
 import 'services/midi_service.dart';
+import 'theme/app_theme.dart';
+
+const Map<String, IconData> _panelIcons = {
+  'REVERB': Icons.airplay,
+  'CHORUS': Icons.waves,
+  'INSERTION MFX': Icons.tune,
+};
+
+const Map<String, IconData> _categoryIcons = {
+  'REVERB': Icons.airplay,
+  'PITCH': Icons.tune,
+  'DRIVE': Icons.bolt,
+  'MOD/DELAY': Icons.waves,
+  'EQ': Icons.graphic_eq,
+};
 
 class EffectsScreen extends StatefulWidget {
-  const EffectsScreen({super.key, required this.catalog, required this.midi});
+  const EffectsScreen({
+    super.key,
+    required this.catalog,
+    required this.midi,
+    required this.channel,
+  });
 
   final ToneCatalog catalog;
   final MidiService midi;
+  final int channel;
 
   @override
   State<EffectsScreen> createState() => _EffectsScreenState();
@@ -30,13 +51,12 @@ class _EffectsScreenState extends State<EffectsScreen> {
   int _chorusRate = 0;
   int _chorusDepth = 0;
   int _chorusFeedback = 0;
-  int _chorusSend = 0;
+  static const int _chorusSendDefault = 40;
+  int _chorusSend = _chorusSendDefault;
 
   int _mfxType = 0;
   int _mfxBalance = 0;
   int _mfxLevel = 0;
-
-  int _part = 0;
 
   void _sendReverb(int param, int value) =>
       widget.midi.sendReverb(param: param, value: value);
@@ -46,7 +66,10 @@ class _EffectsScreenState extends State<EffectsScreen> {
 
   void _setReverbOn(bool on) {
     setState(() => _reverbOn = on);
-    widget.midi.sendPartReverbSend(channel: _part, value: on ? _reverbSend : 0);
+    widget.midi.sendPartReverbSend(
+      channel: widget.channel,
+      value: on ? _reverbSend : 0,
+    );
     if (on) {
       _sendReverb(0, _reverbType);
       _sendReverb(1, _reverbTime);
@@ -55,7 +78,10 @@ class _EffectsScreenState extends State<EffectsScreen> {
 
   void _setChorusOn(bool on) {
     setState(() => _chorusOn = on);
-    widget.midi.sendPartChorusSend(channel: _part, value: on ? _chorusSend : 0);
+    widget.midi.sendPartChorusSend(
+      channel: widget.channel,
+      value: on ? _chorusSend : 0,
+    );
     if (on) {
       _sendChorus(0, _chorusType);
       _sendChorus(1, _chorusRate);
@@ -67,7 +93,7 @@ class _EffectsScreenState extends State<EffectsScreen> {
 
   void _setMfxOn(bool on) {
     setState(() => _mfxOn = on);
-    widget.midi.sendPartMfxAssign(channel: _part, value: on ? 1 : 0);
+    widget.midi.sendPartMfxAssign(channel: widget.channel, value: on ? 1 : 0);
     if (on) {
       widget.midi.sendMfx(offset: 0x00, value: _mfxType);
       widget.midi.sendMfx(offset: _fx.mfxBalanceOffset, value: _mfxBalance);
@@ -85,9 +111,9 @@ class _EffectsScreenState extends State<EffectsScreen> {
         children: [
           _typeRow(label: 'TYPE', types: _fx.reverbTypes, value: _reverbType,
             onChanged: (v) { _reverbType = v; _sendReverb(0, v); }),
-          _knobArea([
-            _Knob(label: 'TIME', value: _reverbTime,
-              onChanged: (v) { _reverbTime = v; _sendReverb(1, v); }),
+          _sliderArea([
+            _ParamSlider(label: 'TIME', value: _reverbTime,
+              onChanged: (v) => setState(() { _reverbTime = v; _sendReverb(1, v); })),
           ]),
         ],
       ),
@@ -98,15 +124,19 @@ class _EffectsScreenState extends State<EffectsScreen> {
         children: [
           _typeRow(label: 'TYPE', types: _fx.chorusTypes, value: _chorusType,
             onChanged: (v) { _chorusType = v; _sendChorus(0, v); }),
-          _knobArea([
-            _Knob(label: 'RATE', value: _chorusRate,
-              onChanged: (v) { _chorusRate = v; _sendChorus(1, v); }),
-            _Knob(label: 'DEPTH', value: _chorusDepth,
-              onChanged: (v) { _chorusDepth = v; _sendChorus(2, v); }),
-            _Knob(label: 'FEEDBACK', value: _chorusFeedback,
-              onChanged: (v) { _chorusFeedback = v; _sendChorus(3, v); }),
-            _Knob(label: 'SEND', value: _chorusSend,
-              onChanged: (v) { _chorusSend = v; _sendChorus(4, v); }),
+          _sliderArea([
+            _ParamSlider(label: 'RATE', value: _chorusRate,
+              onChanged: (v) => setState(() { _chorusRate = v; _sendChorus(1, v); })),
+            _ParamSlider(label: 'DEPTH', value: _chorusDepth,
+              onChanged: (v) => setState(() { _chorusDepth = v; _sendChorus(2, v); })),
+            _ParamSlider(label: 'FEEDBACK', value: _chorusFeedback,
+              onChanged: (v) => setState(() { _chorusFeedback = v; _sendChorus(3, v); })),
+            _ParamSlider(label: 'SEND', value: _chorusSend,
+              onChanged: (v) => setState(() {
+                _chorusSend = v;
+                _sendChorus(4, v);
+                widget.midi.sendPartChorusSend(channel: widget.channel, value: v);
+              })),
           ]),
         ],
       ),
@@ -115,13 +145,13 @@ class _EffectsScreenState extends State<EffectsScreen> {
         on: _mfxOn,
         onToggle: _setMfxOn,
         children: [
-          _typeRow(label: 'TYPE', types: _fx.mfxTypes, value: _mfxType,
+          _typeDropdown(label: 'TYPE', types: _fx.mfxTypes, value: _mfxType,
             onChanged: (v) { _mfxType = v; widget.midi.sendMfx(offset: 0x00, value: v); }),
-          _knobArea([
-            _Knob(label: 'BALANCE', value: _mfxBalance,
-              onChanged: (v) { _mfxBalance = v; widget.midi.sendMfx(offset: _fx.mfxBalanceOffset, value: v); }),
-            _Knob(label: 'LEVEL', value: _mfxLevel,
-              onChanged: (v) { _mfxLevel = v; widget.midi.sendMfx(offset: _fx.mfxLevelOffset, value: v); }),
+          _sliderArea([
+            _ParamSlider(label: 'BALANCE', value: _mfxBalance,
+              onChanged: (v) => setState(() { _mfxBalance = v; widget.midi.sendMfx(offset: _fx.mfxBalanceOffset, value: v); })),
+            _ParamSlider(label: 'LEVEL', value: _mfxLevel,
+              onChanged: (v) => setState(() { _mfxLevel = v; widget.midi.sendMfx(offset: _fx.mfxLevelOffset, value: v); })),
           ]),
         ],
       ),
@@ -129,62 +159,37 @@ class _EffectsScreenState extends State<EffectsScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 900;
+        final width = constraints.maxWidth;
+        final cols = width >= 1200 ? 3 : 1;
+        final rows = <Widget>[];
+        for (int i = 0; i < modules.length; i += cols) {
+          final rowModules = modules.sublist(
+            i,
+            math.min(i + cols, modules.length),
+          );
+          rows.add(Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (int j = 0; j < rowModules.length; j++) ...[
+                if (j > 0) const SizedBox(width: 12),
+                Expanded(child: rowModules[j]),
+              ],
+              if (rowModules.length < cols)
+                for (int j = rowModules.length; j < cols; j++)
+                  const Expanded(child: SizedBox()),
+            ],
+          ));
+        }
         return ListView(
           padding: const EdgeInsets.all(14),
           children: [
-            _partStrip(),
-            const SizedBox(height: 12),
-            if (wide)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (int i = 0; i < modules.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 12),
-                    Expanded(child: modules[i]),
-                  ],
-                ],
-              )
-            else ...[
-              for (int i = 0; i < modules.length; i++) ...[
-                if (i > 0) const SizedBox(height: 12),
-                modules[i],
-              ],
+            for (int i = 0; i < rows.length; i++) ...[
+              if (i > 0) const SizedBox(height: 12),
+              rows[i],
             ],
           ],
         );
       },
-    );
-  }
-
-  /// Part selector shown above the effect modules.
-  Widget _partStrip() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF171717),
-        border: Border.all(color: const Color(0xFF2E2E2E)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          const _MiniLabel('ROUTING PART'),
-          const SizedBox(width: 12),
-          _channelPicker(),
-          const Spacer(),
-          const _MiniLabel('MIDI CH'),
-          const SizedBox(width: 6),
-          Text(
-            '${_part + 1}',
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFFE5E2E1),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -195,10 +200,11 @@ class _EffectsScreenState extends State<EffectsScreen> {
     required ValueChanged<bool> onToggle,
     required List<Widget> children,
   }) {
+    final theme = Gw7Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF171717),
-        border: Border.all(color: const Color(0xFF2E2E2E)),
+        color: theme.surface,
+        border: Border.all(color: theme.border),
         borderRadius: BorderRadius.circular(10),
         boxShadow: const [
           BoxShadow(color: Colors.black54, blurRadius: 10, offset: Offset(0, 4)),
@@ -209,21 +215,26 @@ class _EffectsScreenState extends State<EffectsScreen> {
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1F1E1E),
-              border: Border(bottom: BorderSide(color: Color(0xFF2E2E2E))),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
+            decoration: BoxDecoration(
+              color: theme.surfaceHigh,
+              border: Border(bottom: BorderSide(color: theme.border)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
             ),
             child: Row(
               children: [
+                if (_panelIcons[title] case final icon?) ...[
+                  Icon(icon, size: 16, color: Theme.of(context).colorScheme.onSurface),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
+                      fontFamily: Gw7Fonts.of(context).display,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 2.2,
-                      color: Color(0xFFE5E2E1),
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ),
@@ -252,14 +263,15 @@ class _EffectsScreenState extends State<EffectsScreen> {
 
   /// Hardware-style ON/OFF power switch with LED.
   Widget _powerSwitch({required bool on, required ValueChanged<bool> onToggle}) {
+    final theme = Gw7Theme.of(context);
     return GestureDetector(
       onTap: () => onToggle(!on),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: const Color(0xFF0E0E0E),
+          color: theme.surfaceLow,
           border: Border.all(
-            color: on ? const Color(0xFF41DDC2) : const Color(0xFF333333),
+            color: on ? theme.tertiary : theme.border,
           ),
           borderRadius: BorderRadius.circular(6),
         ),
@@ -271,9 +283,9 @@ class _EffectsScreenState extends State<EffectsScreen> {
               height: 8,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: on ? const Color(0xFF41DDC2) : const Color(0xFF333333),
+                color: on ? theme.tertiary : theme.border,
                 boxShadow: on
-                    ? const [BoxShadow(color: Color(0x9941DDC2), blurRadius: 8)]
+                    ? [BoxShadow(color: theme.tertiary.withValues(alpha: 0.6), blurRadius: 8)]
                     : null,
               ),
             ),
@@ -281,10 +293,10 @@ class _EffectsScreenState extends State<EffectsScreen> {
             Text(
               on ? 'ON' : 'OFF',
               style: TextStyle(
-                fontFamily: 'monospace',
+                fontFamily: Gw7Fonts.of(context).mono,
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: on ? const Color(0xFF41DDC2) : const Color(0xFF777777),
+                color: on ? theme.tertiary : theme.textDim,
               ),
             ),
           ],
@@ -293,69 +305,105 @@ class _EffectsScreenState extends State<EffectsScreen> {
     );
   }
 
-  /// Segmented "type" selector rendered as labelled chips.
+  /// Segmented "type" selector rendered as a horizontal scrolling row of chips
+  /// (mirroring the preset bank tabs), with inline non-interactive category
+  /// labels when entries carry a `category`.
   Widget _typeRow({
     required String label,
     required List<NamedValue> types,
     required int value,
     required ValueChanged<int> onChanged,
   }) {
-    return Row(
+    final items = <Widget>[];
+    String? lastCategory;
+    for (final t in types) {
+      if (t.category != null && t.category != lastCategory) {
+        items.add(_categoryItem(t.category!));
+        lastCategory = t.category;
+      }
+      items.add(_typeChip(t: t, value: value, onChanged: onChanged));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _MiniLabel('TYPE'),
-        const SizedBox(width: 10),
-        Expanded(
-          child: SizedBox(
-            height: 34,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: types.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 5),
-              itemBuilder: (context, i) {
-                final t = types[i];
-                final selected = t.value == value;
-                return GestureDetector(
-                  onTap: () {
-                    onChanged(t.value);
-                    setState(() {});
-                  },
-                  child: Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? const Color(0x2EFF6600)
-                          : const Color(0xFF0E0E0E),
-                      border: Border.all(
-                        color: selected
-                            ? const Color(0xFFFF6600)
-                            : const Color(0xFF333333),
-                      ),
-                      borderRadius: BorderRadius.circular(6),
-                      boxShadow: selected
-                          ? [
-                              BoxShadow(
-                                color: const Color(0xFFFF6600).withValues(
-                                  alpha: 0.3,
-                                ),
-                                blurRadius: 8,
-                              ),
-                            ]
-                          : null,
-                    ),
+        _MiniLabel(label),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (context, i) => items[i],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _typeDropdown({
+    required String label,
+    required List<NamedValue> types,
+    required int value,
+    required ValueChanged<int> onChanged,
+  }) {
+    final theme = Gw7Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MiniLabel(label),
+        const SizedBox(height: 8),
+        Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: theme.surfaceLow,
+            border: Border.all(color: theme.border),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: value,
+              isExpanded: true,
+              icon: Icon(Icons.keyboard_arrow_down, color: theme.textDim),
+              dropdownColor: theme.surfaceHigh,
+              borderRadius: BorderRadius.circular(8),
+              style: TextStyle(
+                fontFamily: Gw7Fonts.of(context).mono,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: theme.text,
+              ),
+              selectedItemBuilder: (context) => [
+                for (final t in types)
+                  Align(
+                    alignment: Alignment.centerLeft,
                     child: Text(
                       t.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
+                        fontFamily: Gw7Fonts.of(context).mono,
+                        fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: selected
-                            ? const Color(0xFFFFB596)
-                            : const Color(0xFF9A9A9A),
+                        color: theme.primary,
                       ),
                     ),
                   ),
-                );
+              ],
+              items: [
+                for (final t in types)
+                  DropdownMenuItem(
+                    value: t.value,
+                    child: Text(
+                      t.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (v) {
+                if (v != null) onChanged(v);
               },
             ),
           ),
@@ -364,66 +412,144 @@ class _EffectsScreenState extends State<EffectsScreen> {
     );
   }
 
-  /// Responsive knob placement: one row for 1–2 knobs, 2×2 grid for 4.
-  Widget _knobArea(List<_Knob> knobs) {
-    const gap = 18.0;
-    final cols = knobs.length >= 4 ? 2 : 1;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = (constraints.maxWidth - gap * (cols - 1)) / cols;
-        final rows = <Widget>[];
-        for (int i = 0; i < knobs.length; i += cols) {
-          final rowKnobs = knobs.sublist(
-            i,
-            math.min(i + cols, knobs.length),
-          );
-          rows.add(Row(
-            children: [
-              for (int j = 0; j < rowKnobs.length; j++) ...[
-                if (j > 0) const SizedBox(width: gap),
-                Expanded(child: rowKnobs[j]),
-              ],
-              if (rowKnobs.length < cols)
-                for (int j = rowKnobs.length; j < cols; j++)
-                  const SizedBox(width: gap),
-            ],
-          ));
-        }
-        return Column(
-          children: [
-            for (int i = 0; i < rows.length; i++) ...[
-              if (i > 0) const SizedBox(height: 18),
-              SizedBox(height: w, child: rows[i]),
-            ],
-          ],
-        );
-      },
+  Widget _categoryItem(String category) {
+    final color = Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+    return Container(
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_categoryIcons[category] case final icon?)
+            Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            category,
+            style: TextStyle(
+              fontFamily: Gw7Fonts.of(context).mono,
+              fontSize: 11,
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _channelPicker() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFF333333)),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<int>(
-          value: _part,
-          dropdownColor: const Color(0xFF0E0E0E),
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 12,
-            color: Color(0xFFE5E2E1),
+  Widget _typeChip({
+    required NamedValue t,
+    required int value,
+    required ValueChanged<int> onChanged,
+  }) {
+    final selected = t.value == value;
+    final theme = Gw7Theme.of(context);
+    return GestureDetector(
+      onTap: () {
+        onChanged(t.value);
+        setState(() {});
+      },
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.primaryContainer.withValues(alpha: 0.18)
+              : theme.surfaceLow,
+          border: Border.all(
+            color: selected ? theme.primaryContainer : theme.border,
+            width: selected ? 1.5 : 1,
           ),
-          items: [
-            for (int i = 0; i < 16; i++)
-              DropdownMenuItem(value: i, child: Text('${i + 1}')),
-          ],
-          onChanged: (v) => setState(() => _part = v ?? 0),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: theme.primaryContainer.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          t.name,
+          style: TextStyle(
+            fontFamily: Gw7Fonts.of(context).mono,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: selected ? theme.primary : theme.textDim,
+          ),
         ),
       ),
+    );
+  }
+
+  /// Stacked parameter sliders (one per line).
+  Widget _sliderArea(List<_ParamSlider> sliders) {
+    return Column(
+      children: [
+        for (int i = 0; i < sliders.length; i++) ...[
+          if (i > 0) const SizedBox(height: 6),
+          sliders[i],
+        ],
+      ],
+    );
+  }
+}
+
+/// Slider row: label, 0–127 track, numeric readout.
+class _ParamSlider extends StatelessWidget {
+  const _ParamSlider({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Gw7Theme.of(context);
+    return Row(
+      children: [
+        SizedBox(width: 72, child: _MiniLabel(label)),
+        Expanded(
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 4,
+              activeTrackColor: theme.primaryContainer,
+              inactiveTrackColor: theme.border,
+              thumbColor: theme.primary,
+              overlayColor: theme.primary.withValues(alpha: 0.15),
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+            ),
+            child: Slider(
+              value: value.toDouble(),
+              max: 127,
+              divisions: 127,
+              label: '$value',
+              onChanged: (v) => onChanged(v.round()),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 30,
+          child: Text(
+            '$value',
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontFamily: Gw7Fonts.of(context).mono,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: theme.primary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -437,137 +563,13 @@ class _MiniLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        fontFamily: 'monospace',
+      style: TextStyle(
+        fontFamily: Gw7Fonts.of(context).mono,
         fontSize: 10,
         letterSpacing: 1.2,
         fontWeight: FontWeight.w700,
-        color: Color(0xFF8A8A8A),
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
   }
-}
-
-/// Rotary knob: drag up/down to change, arc shows position.
-class _Knob extends StatefulWidget {
-  const _Knob({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String label;
-  final int value;
-  final ValueChanged<int> onChanged;
-
-  @override
-  State<_Knob> createState() => _KnobState();
-}
-
-class _KnobState extends State<_Knob> {
-  late int _dragBase = widget.value;
-
-  @override
-  Widget build(BuildContext context) {
-    final v = widget.value;
-    final frac = v / 127.0;
-    final angle = (-135.0 + 270.0 * frac) * math.pi / 180.0;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onHorizontalDragStart: (_) => _dragBase = v,
-          onHorizontalDragUpdate: (d) =>
-              widget.onChanged((_dragBase + d.delta.dx * 1.2).round().clamp(0, 127)),
-          onVerticalDragStart: (_) => _dragBase = v,
-          onVerticalDragUpdate: (d) =>
-              widget.onChanged((_dragBase - d.delta.dy * 1.2).round().clamp(0, 127)),
-          child: CustomPaint(
-            size: const Size(72, 72),
-            painter: _KnobPainter(angle: angle, value: v),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '$v',
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFFFFB596),
-          ),
-        ),
-        _MiniLabel(widget.label),
-      ],
-    );
-  }
-}
-
-class _KnobPainter extends CustomPainter {
-  const _KnobPainter({required this.angle, required this.value});
-
-  final double angle;
-  final int value;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.width / 2 - 6;
-
-    // body
-    final body = Paint()
-      ..shader = const RadialGradient(
-        colors: [Color(0xFF3A3838), Color(0xFF171616)],
-        stops: [0.4, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: radius));
-    canvas.drawCircle(center, radius, body);
-
-    // rim
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = const Color(0xFF3E3C3C),
-    );
-
-    // value arc (from -135deg)
-    final arcRect = Rect.fromCircle(center: center, radius: radius - 8);
-    final arc = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round
-      ..color = const Color(0xFFFF6600);
-    final start = -135.0 * math.pi / 180.0;
-    canvas.drawArc(
-      arcRect,
-      start,
-      angle - start,
-      false,
-      arc,
-    );
-
-    // pointer line
-    final pointerLen = radius - 9;
-    final end = Offset(
-      center.dx + math.cos(angle) * pointerLen,
-      center.dy + math.sin(angle) * pointerLen,
-    );
-    canvas.drawLine(
-      center,
-      end,
-      Paint()
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round
-        ..color = const Color(0xFFE5E2E1),
-    );
-
-    // centre cap
-    canvas.drawCircle(center, 4, Paint()..color = const Color(0xFFE5E2E1));
-  }
-
-  @override
-  bool shouldRepaint(covariant _KnobPainter oldDelegate) =>
-      oldDelegate.angle != angle;
 }

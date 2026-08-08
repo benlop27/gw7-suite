@@ -1,16 +1,48 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_midi_command/flutter_midi_command.dart';
 
 import 'models/tone_catalog.dart';
 import 'services/midi_service.dart';
+import 'theme/app_theme.dart';
+
+const Map<String, IconData> _bankIcons = {
+  'PIANO': Icons.piano,
+  'ELECTRIC PIANO': Icons.piano,
+  'ORGAN': Icons.apartment,
+  'ACCORDION': Icons.tune,
+  'KEYBOARD': Icons.keyboard_alt,
+  'CHROMATIC PERC': Icons.waves,
+  'ACOUSTIC GUITAR': Icons.music_note,
+  'ELECTRIC GUITAR': Icons.bolt,
+  'BASS': Icons.volume_down,
+  'STRINGS': Icons.queue_music,
+  'VOCAL': Icons.mic,
+  'SAX': Icons.air,
+  'WIND': Icons.wind_power,
+  'ACOUSTIC BRASS': Icons.campaign,
+  'SYNTH BRASS': Icons.bolt,
+  'SYNTH LEAD': Icons.graphic_eq,
+  'POLY SYNTHESIZER': Icons.radio,
+  'PAD': Icons.cloud,
+  'WORLD 1': Icons.public,
+  'WORLD 2': Icons.public,
+  'PERCUSSION': Icons.circle,
+  'SFX': Icons.auto_awesome,
+  'DRUMS': Icons.donut_large,
+};
 
 class PresetScreen extends StatefulWidget {
-  const PresetScreen({super.key, required this.catalog, required this.midi});
+  const PresetScreen({
+    super.key,
+    required this.catalog,
+    required this.midi,
+    required this.channel,
+  });
 
   final ToneCatalog catalog;
   final MidiService midi;
+  final int channel;
 
   @override
   State<PresetScreen> createState() => _PresetScreenState();
@@ -21,55 +53,6 @@ class _PresetScreenState extends State<PresetScreen> {
 
   int _bankIndex = 0;
   int? _selectedTone;
-  int _channel = 0;
-  MidiDevice? _device;
-
-  @override
-  void initState() {
-    super.initState();
-    _midi.onSetupChanged?.listen((change) {
-      if (!mounted) return;
-      _refreshDevices();
-    });
-    _midi.onDataReceived?.listen((event) {
-      if (!mounted) return;
-      final buf = StringBuffer('RX');
-      for (final b in event.message.data) {
-        buf.write(' ${_hex(b)}');
-      }
-      _midi.lastRx.value = buf.toString();
-    });
-  }
-
-  Future<void> _refreshDevices() async {
-    final devices = await _midi.scanDevices();
-    if (!mounted) return;
-    final stillThere = devices.where((d) => d.connected).toList();
-    setState(() {
-      if (stillThere.isNotEmpty) {
-        _device = stillThere.first;
-      } else if (_device != null && !devices.any((d) => d.id == _device!.id)) {
-        _device = null;
-      }
-    });
-  }
-
-  Future<void> _connect() async {
-    final devices = await _midi.scanDevices();
-    if (!mounted) return;
-    if (devices.isEmpty) return;
-    final device = devices.firstWhere(
-      (d) => d.type == MidiDeviceType.serial,
-      orElse: () => devices.first,
-    );
-    setState(() => _device = device);
-    await _midi.connect(device);
-  }
-
-  void _disconnect() {
-    _midi.disconnect();
-    setState(() => _device = null);
-  }
 
   void _selectTone(ToneBank bank, Tone tone, int idx) {
     setState(() {
@@ -80,201 +63,16 @@ class _PresetScreenState extends State<PresetScreen> {
       cc00: tone.cc00,
       cc32: tone.cc32,
       pc: tone.pc,
-      channel: _channel,
+      channel: widget.channel,
     );
   }
-
-  String _hex(int b) =>
-      '0${(b & 0xff).toRadixString(16).toUpperCase()}'.substring(1);
 
   @override
   Widget build(BuildContext context) {
     final catalog = widget.catalog;
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            _topBar(context),
-            Expanded(child: _content(catalog)),
-            _footer(),
-          ],
-        ),
-      ),
-    );
+    return _content(catalog);
   }
 
-  Widget _topBar(BuildContext context) {
-    return Container(
-      color: const Color(0xFF0A0A0A),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final narrow = constraints.maxWidth < 560;
-          final title = const Text(
-            'GW-7 PRESETS',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.5,
-            ),
-          );
-          final channel = _channelSelector();
-          final connect = _device == null
-              ? ElevatedButton(
-                  onPressed: _connect,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF6600),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                  ),
-                  child: const Text('Connect'),
-                )
-              : OutlinedButton(
-                  onPressed: _disconnect,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                  ),
-                  child: const Text('Disconnect'),
-                );
-          if (narrow) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    title,
-                    const Spacer(),
-                    channel,
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(child: _statusPill()),
-                    const SizedBox(width: 8),
-                    connect,
-                  ],
-                ),
-              ],
-            );
-          }
-          return Row(
-            children: [
-              title,
-              const Spacer(),
-              _statusPill(),
-              const SizedBox(width: 8),
-              channel,
-              const SizedBox(width: 8),
-              connect,
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _statusPill() {
-    return ValueListenableBuilder<MidiStatus>(
-      valueListenable: _midi.status,
-      builder: (context, status, _) {
-        final Color ledColor;
-        if (status.error) {
-          ledColor = const Color(0xFF93000A);
-        } else if (status.ok) {
-          ledColor = const Color(0xFF41DDC2);
-        } else {
-          ledColor = const Color(0xFF333333);
-        }
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0E0E0E),
-            border: Border.all(color: const Color(0xFF2D2D2D)),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: ledColor,
-                  shape: BoxShape.circle,
-                  boxShadow: status.ok || status.error
-                      ? [
-                          BoxShadow(
-                            color: ledColor.withValues(alpha: 0.6),
-                            blurRadius: 8,
-                          ),
-                        ]
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  status.text,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: status.error
-                        ? const Color(0xFFFFB4AB)
-                        : status.ok
-                            ? const Color(0xFF41DDC2)
-                            : const Color(0xFF8A8A8A),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _channelSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFF2D2D2D)),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'CH ',
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 10,
-              color: Color(0xFF8A8A8A),
-            ),
-          ),
-          DropdownButton<int>(
-            value: _channel,
-            dropdownColor: const Color(0xFF0E0E0E),
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-              color: Color(0xFFE5E2E1),
-            ),
-            underline: const SizedBox.shrink(),
-            items: [
-              for (int i = 0; i < 16; i++)
-                DropdownMenuItem(
-                  value: i,
-                  child: Text('${i + 1}${i == 9 ? ' (drum)' : ''}'),
-                ),
-            ],
-            onChanged: (v) => setState(() => _channel = v!),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _content(ToneCatalog catalog) {
     final bank = catalog.banks[_bankIndex];
@@ -300,7 +98,7 @@ class _PresetScreenState extends State<PresetScreen> {
               Expanded(
                 child: _lcd(
                   text: tone != null
-                      ? 'ch${_channel + 1} · ${tone.name}'
+                      ? 'ch${widget.channel + 1} · ${tone.name}'
                       : '—',
                 ),
               ),
@@ -316,6 +114,7 @@ class _PresetScreenState extends State<PresetScreen> {
   }
 
   Widget _lcd({required String text, bool big = false}) {
+    final theme = Gw7Theme.of(context);
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: big ? 18 : 12,
@@ -323,7 +122,7 @@ class _PresetScreenState extends State<PresetScreen> {
       ),
       decoration: BoxDecoration(
         color: Colors.black,
-        border: Border.all(color: const Color(0xFF333333)),
+        border: Border.all(color: theme.border),
         borderRadius: BorderRadius.circular(6),
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 10)],
       ),
@@ -333,10 +132,10 @@ class _PresetScreenState extends State<PresetScreen> {
         textAlign: TextAlign.center,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontFamily: 'monospace',
+          fontFamily: Gw7Fonts.of(context).mono,
           fontWeight: FontWeight.w700,
           fontSize: big ? 22 : 13,
-          color: const Color(0xFFFFB596),
+          color: theme.primary,
         ),
       ),
     );
@@ -345,16 +144,17 @@ class _PresetScreenState extends State<PresetScreen> {
   Widget _bankTabs(ToneCatalog catalog) {
     final banks = catalog.banks;
     final rowCount = (banks.length / 2).ceil();
+    final theme = Gw7Theme.of(context);
     return Column(
       children: [
         for (int r = 0; r < 2; r++) ...[
           if (r > 0) const SizedBox(height: 4),
           SizedBox(
-            height: 42,
+            height: 52,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: r == 0 ? rowCount : banks.length - rowCount,
-              separatorBuilder: (_, _) => const SizedBox(width: 4),
+              separatorBuilder: (_, _) => const SizedBox(width: 6),
               itemBuilder: (context, i) {
                 final idx = r * rowCount + i;
                 final bank = banks[idx];
@@ -366,21 +166,22 @@ class _PresetScreenState extends State<PresetScreen> {
                   }),
                   child: Container(
                     alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     decoration: BoxDecoration(
                       color: active
-                          ? const Color(0x1FFF6600)
-                          : const Color(0xFF0E0E0E),
+                          ? theme.primaryContainer.withValues(alpha: 0.12)
+                          : theme.surfaceLow,
                       border: Border.all(
                         color: active
-                            ? const Color(0xFFFF6600)
-                            : const Color(0xFF2D2D2D),
+                            ? theme.primaryContainer
+                            : theme.border,
+                        width: active ? 1.5 : 1,
                       ),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(8),
                       boxShadow: active
                           ? [
                               BoxShadow(
-                                color: const Color(0xFFFF6600).withValues(
+                                color: theme.primaryContainer.withValues(
                                   alpha: 0.25,
                                 ),
                                 blurRadius: 10,
@@ -388,17 +189,26 @@ class _PresetScreenState extends State<PresetScreen> {
                             ]
                           : null,
                     ),
-                    child: Text(
-                      bank.name,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                        color: active
-                            ? const Color(0xFFFFB596)
-                            : const Color(0xFF8A8A8A),
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _bankIcons[bank.name] ?? Icons.music_note,
+                          size: 18,
+                          color: active ? theme.primary : theme.textDim,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          bank.name,
+                          style: TextStyle(
+                            fontFamily: Gw7Fonts.of(context).mono,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                            color: active ? theme.primary : theme.textDim,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -414,6 +224,7 @@ class _PresetScreenState extends State<PresetScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
+        final theme = Gw7Theme.of(context);
         final cols = width >= 900
             ? 8
             : width >= 600
@@ -423,7 +234,7 @@ class _PresetScreenState extends State<PresetScreen> {
                     : 3;
         return Container(
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFF2D2D2D)),
+            border: Border.all(color: theme.border),
             borderRadius: BorderRadius.circular(6),
           ),
           child: GridView.builder(
@@ -443,18 +254,18 @@ class _PresetScreenState extends State<PresetScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: selected
-                        ? const Color(0x26FF6600)
-                        : const Color(0xFF201F1F),
+                        ? theme.primaryContainer.withValues(alpha: 0.15)
+                        : theme.surfaceHigh,
                     border: Border.all(
                       color: selected
-                          ? const Color(0xFFFF6600)
-                          : const Color(0xFF2D2D2D),
+                          ? theme.primaryContainer
+                          : theme.border,
                     ),
                     borderRadius: BorderRadius.circular(6),
                     boxShadow: selected
                         ? [
                             BoxShadow(
-                              color: const Color(0xFFFF6600).withValues(
+                              color: theme.primaryContainer.withValues(
                                 alpha: 0.3,
                               ),
                               blurRadius: 10,
@@ -468,12 +279,10 @@ class _PresetScreenState extends State<PresetScreen> {
                       Text(
                         '${tone.no}',
                         style: TextStyle(
-                          fontFamily: 'monospace',
+                          fontFamily: Gw7Fonts.of(context).mono,
                           fontSize: math.max(11, width / cols / 11),
                           fontWeight: FontWeight.w700,
-                          color: selected
-                              ? const Color(0xFFFFB596)
-                              : const Color(0xFFE5E2E1),
+                          color: selected ? theme.primary : theme.text,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -483,10 +292,9 @@ class _PresetScreenState extends State<PresetScreen> {
                           tone.name,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
+                            fontFamily: Gw7Fonts.of(context).ui,
                             fontSize: math.max(9, width / cols / 15),
-                            color: selected
-                                ? const Color(0xFFFFB596)
-                                : const Color(0xFF8A8A8A),
+                            color: selected ? theme.primary : theme.textDim,
                           ),
                         ),
                       ),
@@ -498,26 +306,6 @@ class _PresetScreenState extends State<PresetScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _footer() {
-    return Container(
-      width: double.infinity,
-      color: const Color(0xFF0A0A0A),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      child: ValueListenableBuilder<String>(
-        valueListenable: _midi.lastMessage,
-        builder: (context, msg, _) => Text(
-          msg,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 11,
-            color: Color(0xFF5F5F5F),
-          ),
-        ),
-      ),
     );
   }
 }

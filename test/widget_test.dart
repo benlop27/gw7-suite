@@ -54,6 +54,8 @@ void main() {
     );
     expect(fx.mfxTypes.length, 23);
     expect(fx.mfxTypes.first.name, 'OFF');
+    expect(fx.mfxTypes.first.category, 'OFF');
+    expect(fx.mfxTypes.any((n) => n.name == 'STEREO EQ' && n.category == 'EQ'), true);
     expect(fx.mfxBalanceOffset, 0x12);
     expect(fx.mfxLevelOffset, 0x16);
   });
