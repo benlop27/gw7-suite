@@ -43,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
   static const int _channel = 3;
   MidiDevice? _device;
+  List<MidiDevice> _availableDevices = [];
   bool _syncing = false;
 
   @override
@@ -111,6 +112,23 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     setState(() => _device = connected ? _midi.device : _device);
     _syncAfterConnect();
+  }
+
+  Future<void> _connectToDevice(MidiDevice device) async {
+    try {
+      await _midi.connect(device);
+    } catch (_) {
+      // Connection failures surface through the status pill.
+    }
+    if (!mounted) return;
+    setState(() => _device = _midi.device);
+    _syncAfterConnect();
+  }
+
+  Future<void> _openDevicePicker() async {
+    final devices = await _midi.listDevices();
+    if (!mounted) return;
+    setState(() => _availableDevices = devices);
   }
 
   void _disconnect() {
@@ -301,6 +319,54 @@ class _HomeScreenState extends State<HomeScreen> {
                         : Theme.of(context).colorScheme.primary),
             label: const Text('SYNC'),
           );
+          final picker = PopupMenuButton<MidiDevice>(
+            tooltip: 'Choose MIDI device',
+            onOpened: _openDevicePicker,
+            icon: Icon(
+              Icons.settings_input_component,
+              size: 18,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            itemBuilder: (context) {
+              if (_availableDevices.isEmpty) {
+                return const [
+                  PopupMenuItem<MidiDevice>(
+                    enabled: false,
+                    child: Text('No MIDI devices'),
+                  ),
+                ];
+              }
+              return [
+                for (final d in _availableDevices)
+                  PopupMenuItem<MidiDevice>(
+                    value: d,
+                    child: Row(
+                      children: [
+                        Icon(
+                          _device?.id == d.id
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          size: 16,
+                          color: _device?.id == d.id
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            d.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ];
+            },
+            onSelected: _connectToDevice,
+          );
           if (narrow) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -316,6 +382,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Expanded(child: _statusPill()),
                     const SizedBox(width: 8),
+                    picker,
+                    const SizedBox(width: 8),
                     sync,
                     const SizedBox(width: 8),
                     connect,
@@ -329,6 +397,8 @@ class _HomeScreenState extends State<HomeScreen> {
               titleBlock,
               const Spacer(),
               _statusPill(),
+              const SizedBox(width: 8),
+              picker,
               const SizedBox(width: 8),
               sync,
               const SizedBox(width: 8),

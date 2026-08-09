@@ -67,6 +67,11 @@ class MidiService {
     return found;
   }
 
+  /// All currently known MIDI devices (for the manual picker).
+  Future<List<MidiDevice>> listDevices() async {
+    return await _midi.devices ?? const <MidiDevice>[];
+  }
+
   Future<void> connect(MidiDevice device) async {
     await _midi.connectToDevice(device);
     _device = device;
@@ -104,6 +109,15 @@ class MidiService {
       );
       return false;
     }
+    if (kIsWeb) {
+      // Browsers cannot identify the bridge by name reliably (macOS exposes
+      // paired BLE MIDI under names like "Network Session 1"), so never grab
+      // an arbitrary port — let the user pick the right one.
+      status.value = MidiStatus.error(
+        '"$bridgeName" not found — choose the MIDI device',
+      );
+      return false;
+    }
     final fallback = devices.firstWhere(
       (d) => d.type == MidiDeviceType.serial || d.type == MidiDeviceType.ble,
       orElse: () => devices.first,
@@ -120,7 +134,7 @@ class MidiService {
   /// Finds the "Roland GW7" bridge among the currently known devices.
   Future<MidiDevice?> searchBridge({Duration scanWindow = const Duration(seconds: 6)}) async {
     if (kIsWeb) {
-      return _findNamedDevice();
+      return findBridge();
     }
     try {
       await _midi.startBluetooth();
@@ -133,7 +147,7 @@ class MidiService {
       final deadline = DateTime.now().add(scanWindow);
       MidiDevice? found;
       while (DateTime.now().isBefore(deadline)) {
-        found = await _findNamedDevice();
+        found = await findBridge();
         if (found != null) break;
         await Future.delayed(const Duration(milliseconds: 400));
       }
@@ -145,14 +159,21 @@ class MidiService {
     return null;
   }
 
-  Future<MidiDevice?> _findNamedDevice() async {
+  /// Finds the ESP32 bridge among known devices, accepting either the exact
+  /// advertised name ("Roland GW7") or any name mentioning "Roland"/"GW7"
+  /// (helpful on web, where the OS may rename the port).
+  Future<MidiDevice?> findBridge() async {
     final devices = await _midi.devices ?? const <MidiDevice>[];
+    MidiDevice? fuzzy;
     for (final d in devices) {
-      if (d.name.trim().toLowerCase() == bridgeName.toLowerCase()) {
-        return d;
+      final n = d.name.trim().toLowerCase();
+      if (n == bridgeName.toLowerCase()) return d;
+      if (fuzzy == null &&
+          (n.contains('roland') || n.contains('gw7') || n.contains('gw-7'))) {
+        fuzzy = d;
       }
     }
-    return null;
+    return fuzzy;
   }
 
   void disconnect() {
