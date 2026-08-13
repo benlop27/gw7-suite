@@ -21,7 +21,9 @@ backing-track transport.
 Send path per tone: `B0 <ch> 00 <cc00>` (bank MSB) · `B0 <ch> 20 <cc32>`
 (bank LSB) · `C0 <ch> <pc-1>` (program change). Channel is 4 by default.
 
-> 📖 **User guide (Spanish, with screenshots):** [`docs/GUIA_DE_USO.md`](docs/GUIA_DE_USO.md)
+> 📖 **User guides (with screenshots):**
+> - 🇬🇧 English — [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
+> - 🇪🇸 Español — [`docs/GUIA_DE_USO.md`](docs/GUIA_DE_USO.md)
 
 > **Disclaimer:** This is an independent, unofficial project. It is not
 > affiliated with, endorsed by, or sponsored by Roland Corporation. "GW-7" is a
@@ -119,7 +121,8 @@ lib/
 test/                         wire-format + catalog integrity tests
 assets/gw7_midi_catalog.json  bundled catalog
 bridge_firmware.cpp           ESP32 BLE-MIDI → Serial2 bridge firmware
-docs/GUIA_DE_USO.md           user guide (Spanish, screenshots)
+docs/GUIA_DE_USO.md           user guide, Spanish (screenshots)
+docs/USER_GUIDE.md            user guide, English (screenshots)
 docs/screenshots/             screenshots used by the guide
 cypress/                      E2E smoke tests
 ```
