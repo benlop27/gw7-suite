@@ -214,6 +214,21 @@ class MidiService {
 
   String _h(int b) => '0${(b & 0xff).toRadixString(16).toUpperCase()}'.substring(1);
 
+  /// Sends a Control Change `Bn <cc> <v>` on [channel] (0-based).
+  void sendCc({required int cc, required int value, required int channel}) {
+    if (!connected || _device == null) {
+      lastMessage.value = 'No MIDI output — is the GW-7 connected?';
+      return;
+    }
+    final out = Uint8List.fromList([
+      0xb0 | (channel & 0x0f),
+      cc & 0x7f,
+      value & 0x7f,
+    ]);
+    _midi.sendData(out, deviceId: _device!.id);
+    lastMessage.value = 'TX B0 ${_h(cc)} ${_h(value)}  ch${channel + 1}';
+  }
+
   /// Sends a raw MIDI SysEx message: `F0 <body> F7`.
   void sendSysEx(List<int> body) {
     if (!connected || _device == null) {
@@ -229,22 +244,55 @@ class MidiService {
   int _checksum(List<int> data) =>
       (0x80 - (data.fold<int>(0, (a, b) => a + b) & 0x7f)) & 0x7f;
 
+  /// Reverb common-parameter offsets (address `40 01 30 + off`).
+  /// Type is the REVERB MACRO: choosing it re-initialises every reverb
+  /// parameter to its most suitable value (GW-7 MIDI Impl. p.11).
+  static const int reverbMacro = 0x00;
+  static const int reverbCharacter = 0x01;
+  static const int reverbPreLpf = 0x02;
+  static const int reverbLevel = 0x03;
+  static const int reverbTime = 0x04;
+  static const int reverbDelayFeedback = 0x05;
+  static const int reverbPredelay = 0x07;
+
+  /// Chorus common-parameter offsets (address `40 01 38 + off`).
+  static const int chorusMacro = 0x00;
+  static const int chorusPreLpf = 0x01;
+  static const int chorusLevel = 0x02;
+  static const int chorusFeedback = 0x03;
+  static const int chorusDelay = 0x04;
+  static const int chorusRate = 0x05;
+  static const int chorusDepth = 0x06;
+  static const int chorusSendToReverb = 0x07;
+
   /// Universal Realtime master volume.
-  /// `F0 7F 7F 04 01 00 <v> F7` (0–127, default 100).
+  /// `F0 7F 7F 04 01 00 <v> F7` (0–127, default 100). The MI chart lists
+  /// this exact message as an alias for MASTER VOLUME (`40 00 04`).
   void sendMasterVolume(int value) {
     sendSysEx([0x7f, 0x7f, 0x04, 0x01, 0x00, value & 0x7f]);
   }
 
-  /// Universal Realtime reverb message.
-  /// `F0 7F 7F 04 05 01 01 01 01 01 <pp> <vv> F7`
-  void sendReverb({required int param, required int value}) {
-    sendSysEx([0x7f, 0x7f, 0x04, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01, param, value]);
-  }
+  /// Reverb common parameter (DT1): `F0 41 <dev> 42 12 40 01 3<off> <v> <sum> F7`
+  /// Offsets are [reverbMacro]..[reverbPredelay] (0x30..0x37; 0x36 unused).
+  void sendReverb({required int param, required int value}) =>
+      sendCommonParam(hi: 0x01, lo: 0x30 + (param & 0x07), value: value);
 
-  /// Universal Realtime chorus message.
-  /// `F0 7F 7F 04 05 01 01 01 01 02 <pp> <vv> F7`
-  void sendChorus({required int param, required int value}) {
-    sendSysEx([0x7f, 0x7f, 0x04, 0x05, 0x01, 0x01, 0x01, 0x01, 0x02, param, value]);
+  /// Chorus common parameter (DT1): `F0 41 <dev> 42 12 40 01 3<off> <v> <sum> F7`
+  /// Offsets are [chorusMacro]..[chorusSendToReverb] (0x38..0x3F).
+  void sendChorus({required int param, required int value}) =>
+      sendCommonParam(hi: 0x01, lo: 0x38 + (param & 0x07), value: value);
+
+  /// Chorus send level to reverb (DT1): `F0 41 <dev> 42 12 40 03 17 <v> <sum> F7`
+  void sendChorusSendToReverb(int value) =>
+      sendCommonParam(hi: 0x03, lo: 0x17, value: value);
+
+  /// Generic DT1 common parameter write at `40 <hi> <lo>`:
+  /// `F0 41 <dev> 42 12 40 <hi> <lo> <v> <sum> F7`
+  void sendCommonParam({required int hi, required int lo, required int value}) {
+    final addr = [0x40, hi & 0x7f, lo & 0x7f];
+    final body = [0x41, deviceId, 0x42, 0x12, ...addr, value & 0x7f];
+    body.add(_checksum(addr + [value & 0x7f]));
+    sendSysEx(body);
   }
 
   /// Insertion MFX parameter (DT1): `F0 41 <dev> 42 12 40 03 <off> <v> <sum> F7`
@@ -255,53 +303,37 @@ class MidiService {
     sendSysEx(body);
   }
 
-  /// Part MFX assign (DT1): `F0 41 <dev> 42 12 40 4x 22 <v> <sum> F7`
+  /// Part MFX assign (DT1): `F0 41 <dev> 42 12 50 4x 22 <v> <sum> F7`
   /// [channel] is 0-based; channel 10 (index 9) nibbles to 0.
   void sendPartMfxAssign({required int channel, required int value}) =>
-      _sendPartParam(channel: channel, low: 0x22, base: 0x40, value: value);
+      _sendPartParam(channel: channel, low: 0x22, value: value);
 
-  /// Part reverb send (DT1): `F0 41 <dev> 42 12 40 1x 22 <v> <sum> F7`
+  /// Part reverb send (DT1): `F0 41 <dev> 42 12 50 1x 22 <v> <sum> F7`
   /// [channel] is 0-based; 0 = off (mutes reverb for the part).
   void sendPartReverbSend({required int channel, required int value}) =>
-      _sendPartParam(channel: channel, low: 0x22, base: 0x10, value: value);
+      _sendPartParam(channel: channel, low: 0x22, value: value);
 
-  /// Part chorus send (DT1): `F0 41 <dev> 42 12 40 1x 21 <v> <sum> F7`
+  /// Part chorus send (DT1): `F0 41 <dev> 42 12 50 1x 21 <v> <sum> F7`
   /// [channel] is 0-based; 0 = off (mutes chorus for the part).
   void sendPartChorusSend({required int channel, required int value}) =>
-      _sendPartParam(channel: channel, low: 0x21, base: 0x10, value: value);
+      _sendPartParam(channel: channel, low: 0x21, value: value);
 
-  /// Generic part parameter DT1 write: `F0 41 <dev> 42 12 40 <bx> <low> <v> <sum> F7`
+  /// Generic part parameter DT1 write for a Backing/Keyboard part (the parts
+  /// the app drives): `F0 41 <dev> 42 12 50 <bx> <low> <v> <sum> F7`.
+  /// Backing/Keyboard parts use address `50 nn nn`, Song parts `40 nn nn`
+  /// (GW-7 MIDI Impl. p.13). The part nibble `x` is 1-9, then A-F, with
+  /// channel 10 (index 9) encoding as 0.
   void _sendPartParam({
     required int channel,
     required int low,
-    required int base,
     required int value,
   }) {
-    final x = (channel & 0x0f) == 9 ? 0 : (channel & 0x0f) + 1;
-    final addr = [0x40, base | x, low];
+    final c = channel & 0x0f;
+    final x = c == 9 ? 0 : (c < 9 ? c + 1 : c);
+    final addr = [0x50, x, low];
     final body = [0x41, deviceId, 0x42, 0x12, ...addr, value & 0x7f];
     body.add(_checksum(addr + [value & 0x7f]));
     sendSysEx(body);
-  }
-
-  /// Part key range low (DT1): `40 1x 1D <v>` — lowest key that part plays.
-  void sendPartKeyRangeLow({required int channel, required int note}) =>
-      _sendPartParam(channel: channel, low: 0x1d, base: 0x10, value: note);
-
-  /// Part key range high (DT1): `40 1x 1E <v>` — highest key that part plays.
-  void sendPartKeyRangeHigh({required int channel, required int note}) =>
-      _sendPartParam(channel: channel, low: 0x1e, base: 0x10, value: note);
-
-  /// Part octave/key shift (DT1): `40 1x 16 <v>`; range -24..+24 semitones,
-  /// encoded as `semitones + 0x40` (0x40 = 0).
-  void sendPartKeyShift({required int channel, required int semitones}) {
-    final clamped = semitones.clamp(-24, 24);
-    _sendPartParam(
-      channel: channel,
-      low: 0x16,
-      base: 0x10,
-      value: clamped + 0x40,
-    );
   }
 
   /// Sends a raw MIDI byte stream (used for System Realtime messages such as

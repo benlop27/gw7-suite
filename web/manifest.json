@@ -1,12 +1,12 @@
 {
-    "name": "gw7_midi",
-    "short_name": "gw7_midi",
+    "name": "GW-7 Studio",
+    "short_name": "GW-7 Studio",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#14151A",
+    "theme_color": "#14151A",
+    "description": "GW-7 Studio — control surface for the Roland GW-7.",
+    "orientation": "landscape",
     "prefer_related_applications": false,
     "icons": [
         {

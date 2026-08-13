@@ -1,25 +1,11 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import 'models/tone_catalog.dart';
 import 'services/app_controller.dart';
 import 'theme/app_theme.dart';
 
-const Map<String, IconData> _panelIcons = {
-  'REVERB': Icons.airplay,
-  'CHORUS': Icons.waves,
-  'INSERTION MFX': Icons.tune,
-};
-
-const Map<String, IconData> _categoryIcons = {
-  'REVERB': Icons.airplay,
-  'PITCH': Icons.tune,
-  'DRIVE': Icons.bolt,
-  'MOD/DELAY': Icons.waves,
-  'EQ': Icons.graphic_eq,
-};
-
+/// Effects tab: stage-level MIDI CC controllers — attack, release, reverb/
+/// chorus sends, expression and pan — sent on the active part channel.
 class EffectsScreen extends StatefulWidget {
   const EffectsScreen({
     super.key,
@@ -35,476 +21,235 @@ class EffectsScreen extends StatefulWidget {
 }
 
 class _EffectsScreenState extends State<EffectsScreen> {
-  late final EffectInfo _fx = widget.catalog.effects;
   AppController get _controller => widget.controller;
 
   @override
   Widget build(BuildContext context) {
-    final modules = <Widget>[
-      _panel(
-        title: 'REVERB',
-        on: _controller.state.reverbOn,
-        onToggle: _controller.setReverbOn,
-        children: [
-          _typeRow(label: 'TYPE', types: _fx.reverbTypes,
-            value: _controller.state.reverbType,
-            onChanged: _controller.setReverbType),
-          _sliderArea([
-            _ParamSlider(label: 'TIME', value: _controller.state.reverbTime,
-              onChanged: _controller.setReverbTime),
-          ]),
-        ],
-      ),
-      _panel(
-        title: 'CHORUS',
-        on: _controller.state.chorusOn,
-        onToggle: _controller.setChorusOn,
-        children: [
-          _typeRow(label: 'TYPE', types: _fx.chorusTypes,
-            value: _controller.state.chorusType,
-            onChanged: _controller.setChorusType),
-          _sliderArea([
-            _ParamSlider(label: 'RATE', value: _controller.state.chorusRate,
-              onChanged: _controller.setChorusRate),
-            _ParamSlider(label: 'DEPTH', value: _controller.state.chorusDepth,
-              onChanged: _controller.setChorusDepth),
-            _ParamSlider(label: 'FEEDBACK', value: _controller.state.chorusFeedback,
-              onChanged: _controller.setChorusFeedback),
-            _ParamSlider(label: 'SEND', value: _controller.state.chorusSend,
-              onChanged: _controller.setChorusSend),
-          ]),
-        ],
-      ),
-      _panel(
-        title: 'INSERTION MFX',
-        on: _controller.state.mfxOn,
-        onToggle: _controller.setMfxOn,
-        children: [
-          _typeDropdown(label: 'TYPE', types: _fx.mfxTypes,
-            value: _controller.state.mfxType,
-            onChanged: _controller.setMfxType),
-          _sliderArea([
-            _ParamSlider(label: 'BALANCE', value: _controller.state.mfxBalance,
-              onChanged: (v) => _controller.setMfxBalance(v, offset: _fx.mfxBalanceOffset)),
-            _ParamSlider(label: 'LEVEL', value: _controller.state.mfxLevel,
-              onChanged: (v) => _controller.setMfxLevel(v, offset: _fx.mfxLevelOffset)),
-          ]),
-        ],
-      ),
-    ];
-
     return ListenableBuilder(
       listenable: _controller,
-      builder: (context, _) => LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          final cols = width >= 1200 ? 3 : 1;
-          final rows = <Widget>[];
-          for (int i = 0; i < modules.length; i += cols) {
-            final rowModules = modules.sublist(
-              i,
-              math.min(i + cols, modules.length),
-            );
-            rows.add(Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (int j = 0; j < rowModules.length; j++) ...[
-                  if (j > 0) const SizedBox(width: 12),
-                  Expanded(child: rowModules[j]),
-                ],
-                if (rowModules.length < cols)
-                  for (int j = rowModules.length; j < cols; j++)
-                    const Expanded(child: SizedBox()),
-              ],
-            ));
-          }
-          return ListView(
-            padding: const EdgeInsets.all(14),
+      builder: (context, _) {
+        final s = _controller.state;
+        final theme = Gw7Theme.of(context);
+        return Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (int i = 0; i < rows.length; i++) ...[
-                if (i > 0) const SizedBox(height: 12),
-                rows[i],
-              ],
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  /// Hardware module: engraved header strip (with power switch) + body.
-  Widget _panel({
-    required String title,
-    required bool on,
-    required ValueChanged<bool> onToggle,
-    required List<Widget> children,
-  }) {
-    final theme = Gw7Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.surface,
-        border: Border.all(color: theme.border),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: const [
-          BoxShadow(color: Colors.black54, blurRadius: 10, offset: Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: theme.surfaceHigh,
-              border: Border(bottom: BorderSide(color: theme.border)),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-            ),
-            child: Row(
-              children: [
-                if (_panelIcons[title] case final icon?) ...[
-                  Icon(icon, size: 16, color: Theme.of(context).colorScheme.onSurface),
-                  const SizedBox(width: 8),
-                ],
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontFamily: Gw7Fonts.of(context).display,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 2.2,
-                      color: Theme.of(context).colorScheme.onSurface,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: theme.surface,
+                  border: Border.all(color: theme.border),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black54,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
                     ),
-                  ),
+                  ],
                 ),
-                _powerSwitch(on: on, onToggle: onToggle),
-              ],
-            ),
-          ),
-          IgnorePointer(
-            ignoring: !on,
-            child: AnimatedOpacity(
-              opacity: on ? 1.0 : 0.35,
-              duration: const Duration(milliseconds: 200),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: children,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Hardware-style ON/OFF power switch with LED.
-  Widget _powerSwitch({required bool on, required ValueChanged<bool> onToggle}) {
-    final theme = Gw7Theme.of(context);
-    return GestureDetector(
-      onTap: () => onToggle(!on),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: theme.surfaceLow,
-          border: Border.all(
-            color: on ? theme.tertiary : theme.border,
-          ),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: on ? theme.tertiary : theme.border,
-                boxShadow: on
-                    ? [BoxShadow(color: theme.tertiary.withValues(alpha: 0.6), blurRadius: 8)]
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              on ? 'ON' : 'OFF',
-              style: TextStyle(
-                fontFamily: Gw7Fonts.of(context).mono,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: on ? theme.tertiary : theme.textDim,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Segmented "type" selector rendered as a horizontal scrolling row of chips
-  /// (mirroring the preset bank tabs), with inline non-interactive category
-  /// labels when entries carry a `category`.
-  Widget _typeRow({
-    required String label,
-    required List<NamedValue> types,
-    required int value,
-    required ValueChanged<int> onChanged,
-  }) {
-    final items = <Widget>[];
-    String? lastCategory;
-    for (final t in types) {
-      if (t.category != null && t.category != lastCategory) {
-        items.add(_categoryItem(t.category!));
-        lastCategory = t.category;
-      }
-      items.add(_typeChip(t: t, value: value, onChanged: onChanged));
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _MiniLabel(label),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 44,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 8),
-            itemBuilder: (context, i) => items[i],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _typeDropdown({
-    required String label,
-    required List<NamedValue> types,
-    required int value,
-    required ValueChanged<int> onChanged,
-  }) {
-    final theme = Gw7Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _MiniLabel(label),
-        const SizedBox(height: 8),
-        Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: theme.surfaceLow,
-            border: Border.all(color: theme.border),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<int>(
-              value: value,
-              isExpanded: true,
-              icon: Icon(Icons.keyboard_arrow_down, color: theme.textDim),
-              dropdownColor: theme.surfaceHigh,
-              borderRadius: BorderRadius.circular(8),
-              style: TextStyle(
-                fontFamily: Gw7Fonts.of(context).mono,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: theme.text,
-              ),
-              selectedItemBuilder: (context) => [
-                for (final t in types)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      t.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: Gw7Fonts.of(context).mono,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: theme.primary,
+                child: Row(
+                  children: [
+                    Icon(Icons.tune,
+                        size: 16, color: Theme.of(context).colorScheme.onSurface),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'QUICK CC',
+                        style: TextStyle(
+                          fontFamily: Gw7Fonts.of(context).display,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 2.2,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                     ),
-                  ),
-              ],
-              items: [
-                for (final t in types)
-                  DropdownMenuItem(
-                    value: t.value,
-                    child: Text(
-                      t.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: theme.primaryContainer.withValues(alpha: 0.15),
+                        border: Border.all(color: theme.primaryContainer),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'SENT ON CH${_controller.presetChannel + 1}',
+                        style: TextStyle(
+                          fontFamily: Gw7Fonts.of(context).mono,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: theme.primary,
+                        ),
+                      ),
                     ),
-                  ),
-              ],
-              onChanged: (v) {
-                if (v != null) onChanged(v);
-              },
-            ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cols = constraints.maxWidth >= 700 ? 3 : 2;
+                    final cells = [
+                      _CcCell(
+                        label: 'ATTACK',
+                        cc: 73,
+                        value: s.ccAttack,
+                        onChanged: _controller.setCcAttack,
+                      ),
+                      _CcCell(
+                        label: 'RELEASE',
+                        cc: 72,
+                        value: s.ccRelease,
+                        onChanged: _controller.setCcRelease,
+                      ),
+                      _CcCell(
+                        label: 'REVERB',
+                        cc: 91,
+                        value: s.ccReverb,
+                        onChanged: _controller.setCcReverb,
+                      ),
+                      _CcCell(
+                        label: 'CHORUS',
+                        cc: 93,
+                        value: s.ccChorus,
+                        onChanged: _controller.setCcChorus,
+                      ),
+                      _CcCell(
+                        label: 'EXPR',
+                        cc: 11,
+                        value: s.ccExpr,
+                        onChanged: _controller.setCcExpr,
+                      ),
+                      _CcCell(
+                        label: 'PAN',
+                        cc: 10,
+                        value: s.ccPan,
+                        onChanged: _controller.setCcPan,
+                      ),
+                    ];
+                    final rows = <Widget>[];
+                    for (int i = 0; i < cells.length; i += cols) {
+                      final rowCells = cells.sublist(
+                        i,
+                        (i + cols).clamp(0, cells.length),
+                      );
+                      rows.add(Row(
+                        children: [
+                          for (int j = 0; j < rowCells.length; j++) ...[
+                            if (j > 0) const SizedBox(width: 12),
+                            Expanded(child: rowCells[j]),
+                          ],
+                        ],
+                      ));
+                    }
+                    return Column(
+                      children: [
+                        for (int i = 0; i < rows.length; i++) ...[
+                          if (i > 0) const SizedBox(height: 12),
+                          Expanded(child: rows[i]),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _categoryItem(String category) {
-    final color = Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
-    return Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_categoryIcons[category] case final icon?)
-            Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
-          Text(
-            category,
-            style: TextStyle(
-              fontFamily: Gw7Fonts.of(context).mono,
-              fontSize: 11,
-              letterSpacing: 1.4,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _typeChip({
-    required NamedValue t,
-    required int value,
-    required ValueChanged<int> onChanged,
-  }) {
-    final selected = t.value == value;
-    final theme = Gw7Theme.of(context);
-    return GestureDetector(
-      onTap: () => onChanged(t.value),
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? theme.primaryContainer.withValues(alpha: 0.18)
-              : theme.surfaceLow,
-          border: Border.all(
-            color: selected ? theme.primaryContainer : theme.border,
-            width: selected ? 1.5 : 1,
-          ),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: theme.primaryContainer.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          t.name,
-          style: TextStyle(
-            fontFamily: Gw7Fonts.of(context).mono,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: selected ? theme.primary : theme.textDim,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Stacked parameter sliders (one per line).
-  Widget _sliderArea(List<_ParamSlider> sliders) {
-    return Column(
-      children: [
-        for (int i = 0; i < sliders.length; i++) ...[
-          if (i > 0) const SizedBox(height: 6),
-          sliders[i],
-        ],
-      ],
+        );
+      },
     );
   }
 }
 
-/// Slider row: label, 0–127 track, numeric readout.
-class _ParamSlider extends StatelessWidget {
-  const _ParamSlider({
+/// Large grid cell for one quick CC: label + controller number on top,
+/// 0–127 slider in the middle, numeric readout below.
+class _CcCell extends StatelessWidget {
+  const _CcCell({
     required this.label,
+    required this.cc,
     required this.value,
     required this.onChanged,
   });
 
   final String label;
+  final int cc;
   final int value;
   final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final theme = Gw7Theme.of(context);
-    return Row(
-      children: [
-        SizedBox(width: 72, child: _MiniLabel(label)),
-        Expanded(
-          child: SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 4,
-              activeTrackColor: theme.primaryContainer,
-              inactiveTrackColor: theme.border,
-              thumbColor: theme.primary,
-              overlayColor: theme.primary.withValues(alpha: 0.15),
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-            ),
-            child: Slider(
-              value: value.toDouble(),
-              max: 127,
-              divisions: 127,
-              label: '$value',
-              onChanged: (v) => onChanged(v.round()),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.surfaceLow,
+        border: Border.all(color: theme.border),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontFamily: Gw7Fonts.of(context).mono,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                    color: theme.text,
+                  ),
+                ),
+              ),
+              Text(
+                'CC$cc',
+                style: TextStyle(
+                  fontFamily: Gw7Fonts.of(context).mono,
+                  fontSize: 10,
+                  letterSpacing: 0.6,
+                  color: theme.textDim,
+                ),
+              ),
+            ],
+          ),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 6,
+                activeTrackColor: theme.primaryContainer,
+                inactiveTrackColor: theme.border,
+                thumbColor: theme.primary,
+                overlayColor: theme.primary.withValues(alpha: 0.15),
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 22),
+              ),
+              child: Slider(
+                value: value.toDouble(),
+                max: 127,
+                divisions: 127,
+                label: '$value',
+                onChanged: (v) => onChanged(v.round()),
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 30,
-          child: Text(
+          Text(
             '$value',
-            textAlign: TextAlign.right,
+            textAlign: TextAlign.center,
+            maxLines: 1,
             style: TextStyle(
               fontFamily: Gw7Fonts.of(context).mono,
-              fontSize: 13,
+              fontSize: 24,
               fontWeight: FontWeight.w700,
               color: theme.primary,
             ),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MiniLabel extends StatelessWidget {
-  const _MiniLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontFamily: Gw7Fonts.of(context).mono,
-        fontSize: 10,
-        letterSpacing: 1.2,
-        fontWeight: FontWeight.w700,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ],
       ),
     );
   }

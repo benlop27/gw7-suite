@@ -1,4 +1,4 @@
-# gw7_midi — GW-7 Presets (Android)
+# gw7_midi — GW-7 Studio (Android)
 
 Flutter port of the GW-7 preset manager for Android tablets/phones. Selects any
 of the GW-7's 657 factory tones (606 tones + 51 drum kits, 23 category banks)

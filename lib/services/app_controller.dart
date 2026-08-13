@@ -26,6 +26,10 @@ class AppController extends ChangeNotifier {
   bool get loaded => _loaded;
   int get channel => _channel;
 
+  /// Channel the (upper/main) part responds on — used for the preset tone
+  /// and part effect sends.
+  int get presetChannel => _channel;
+
   /// Loads the persisted state (if any) from local storage.
   Future<void> load() async {
     try {
@@ -85,7 +89,7 @@ class AppController extends ChangeNotifier {
     required int cc32,
     required int pc,
   }) {
-    _midi.sendTone(cc00: cc00, cc32: cc32, pc: pc, channel: _channel);
+    _midi.sendTone(cc00: cc00, cc32: cc32, pc: pc, channel: presetChannel);
     _mutate(_state.copyWith(
       presetBankIndex: bankIndex,
       presetToneIndex: () => toneIndex,
@@ -97,35 +101,123 @@ class AppController extends ChangeNotifier {
     _mutate(_state.copyWith(masterVolume: value));
   }
 
+  // -------------------------------------------------------------- Favorites
+
+  bool isFavorite({required int bankIndex, required int toneIndex}) =>
+      _state.favoritePresets
+          .any((f) => f.bankIndex == bankIndex && f.toneIndex == toneIndex);
+
+  /// Adds/removes a preset from the Stage-tab favourites.
+  void toggleFavorite({required int bankIndex, required int toneIndex}) {
+    final current = _state.favoritePresets;
+    final exists = current
+        .any((f) => f.bankIndex == bankIndex && f.toneIndex == toneIndex);
+    final next = exists
+        ? current
+            .where((f) =>
+                !(f.bankIndex == bankIndex && f.toneIndex == toneIndex))
+            .toList()
+        : [...current, PresetRef(bankIndex, toneIndex)];
+    _mutate(_state.copyWith(favoritePresets: next));
+  }
+
+  /// Selects a preset from the Stage tab: sends the tone and records it as
+  /// the current preset (so the Presets tab stays in sync).
+  void selectPreset(int bankIndex, int toneIndex, ToneCatalog catalog) {
+    final bank = catalog.banks[bankIndex];
+    final tone = bank.tones[toneIndex];
+    selectTone(
+      bankIndex: bankIndex,
+      toneIndex: toneIndex,
+      cc00: tone.cc00,
+      cc32: tone.cc32,
+      pc: tone.pc,
+    );
+  }
+
+  // --------------------------------------------------------- Stage quick CCs
+
+  void _sendCc(int cc, int value) =>
+      _midi.sendCc(cc: cc, value: value, channel: presetChannel);
+
+  void setCcAttack(int value) {
+    _sendCc(73, value);
+    _mutate(_state.copyWith(ccAttack: value));
+  }
+
+  void setCcRelease(int value) {
+    _sendCc(72, value);
+    _mutate(_state.copyWith(ccRelease: value));
+  }
+
+  void setCcReverb(int value) {
+    _sendCc(91, value);
+    _mutate(_state.copyWith(ccReverb: value));
+  }
+
+  void setCcChorus(int value) {
+    _sendCc(93, value);
+    _mutate(_state.copyWith(ccChorus: value));
+  }
+
+  void setCcExpr(int value) {
+    _sendCc(11, value);
+    _mutate(_state.copyWith(ccExpr: value));
+  }
+
+  void setCcPan(int value) {
+    _sendCc(10, value);
+    _mutate(_state.copyWith(ccPan: value));
+  }
+
   // ----------------------------------------------------------------- Reverb
 
   void setReverbOn(bool on) {
     _midi.sendPartReverbSend(
-      channel: _channel,
+      channel: presetChannel,
       value: on ? AppState.reverbSend : 0,
     );
     if (on) {
-      _midi.sendReverb(param: 0, value: _state.reverbType);
-      _midi.sendReverb(param: 1, value: _state.reverbTime);
+      _sendReverbParams();
     }
     _mutate(_state.copyWith(reverbOn: on));
   }
 
   void setReverbType(int value) {
-    _midi.sendReverb(param: 0, value: value);
+    _midi.sendReverb(param: MidiService.reverbMacro, value: value);
     _mutate(_state.copyWith(reverbType: value));
   }
 
   void setReverbTime(int value) {
-    _midi.sendReverb(param: 1, value: value);
+    _midi.sendReverb(param: MidiService.reverbTime, value: value);
     _mutate(_state.copyWith(reverbTime: value));
+  }
+
+  void setReverbLevel(int value) {
+    _midi.sendReverb(param: MidiService.reverbLevel, value: value);
+    _mutate(_state.copyWith(reverbLevel: value));
+  }
+
+  void setReverbPredelay(int value) {
+    _midi.sendReverb(param: MidiService.reverbPredelay, value: value);
+    _mutate(_state.copyWith(reverbPredelay: value));
+  }
+
+  void _sendReverbParams() {
+    _midi.sendReverb(param: MidiService.reverbMacro, value: _state.reverbType);
+    _midi.sendReverb(param: MidiService.reverbTime, value: _state.reverbTime);
+    _midi.sendReverb(param: MidiService.reverbLevel, value: _state.reverbLevel);
+    _midi.sendReverb(
+      param: MidiService.reverbPredelay,
+      value: _state.reverbPredelay,
+    );
   }
 
   // ----------------------------------------------------------------- Chorus
 
   void setChorusOn(bool on) {
     _midi.sendPartChorusSend(
-      channel: _channel,
+      channel: presetChannel,
       value: on ? _state.chorusSend : 0,
     );
     if (on) {
@@ -135,43 +227,53 @@ class AppController extends ChangeNotifier {
   }
 
   void setChorusType(int value) {
-    _midi.sendChorus(param: 0, value: value);
+    _midi.sendChorus(param: MidiService.chorusMacro, value: value);
     _mutate(_state.copyWith(chorusType: value));
   }
 
   void setChorusRate(int value) {
-    _midi.sendChorus(param: 1, value: value);
+    _midi.sendChorus(param: MidiService.chorusRate, value: value);
     _mutate(_state.copyWith(chorusRate: value));
   }
 
   void setChorusDepth(int value) {
-    _midi.sendChorus(param: 2, value: value);
+    _midi.sendChorus(param: MidiService.chorusDepth, value: value);
     _mutate(_state.copyWith(chorusDepth: value));
   }
 
   void setChorusFeedback(int value) {
-    _midi.sendChorus(param: 3, value: value);
+    _midi.sendChorus(param: MidiService.chorusFeedback, value: value);
     _mutate(_state.copyWith(chorusFeedback: value));
   }
 
+  void setChorusLevel(int value) {
+    _midi.sendChorus(param: MidiService.chorusLevel, value: value);
+    _mutate(_state.copyWith(chorusLevel: value));
+  }
+
+  /// SEND is the part chorus send (`50 1x 21`) — it routes the part into the
+  /// chorus and is what makes the effect audible for that part.
   void setChorusSend(int value) {
-    _midi.sendChorus(param: 4, value: value);
-    _midi.sendPartChorusSend(channel: _channel, value: value);
+    _midi.sendPartChorusSend(channel: presetChannel, value: value);
     _mutate(_state.copyWith(chorusSend: value));
   }
 
   void _sendChorusParams() {
-    _midi.sendChorus(param: 0, value: _state.chorusType);
-    _midi.sendChorus(param: 1, value: _state.chorusRate);
-    _midi.sendChorus(param: 2, value: _state.chorusDepth);
-    _midi.sendChorus(param: 3, value: _state.chorusFeedback);
-    _midi.sendChorus(param: 4, value: _state.chorusSend);
+    _midi.sendChorus(param: MidiService.chorusMacro, value: _state.chorusType);
+    _midi.sendChorus(param: MidiService.chorusRate, value: _state.chorusRate);
+    _midi.sendChorus(param: MidiService.chorusDepth, value: _state.chorusDepth);
+    _midi.sendChorus(
+      param: MidiService.chorusFeedback,
+      value: _state.chorusFeedback,
+    );
+    _midi.sendChorus(param: MidiService.chorusLevel, value: _state.chorusLevel);
+    _midi.sendPartChorusSend(channel: presetChannel, value: _state.chorusSend);
   }
 
   // ------------------------------------------------------------------- MFX
 
   void setMfxOn(bool on) {
-    _midi.sendPartMfxAssign(channel: _channel, value: on ? 1 : 0);
+    _midi.sendPartMfxAssign(channel: presetChannel, value: on ? 1 : 0);
     if (on) {
       _sendMfxParams();
     }
@@ -217,31 +319,37 @@ class AppController extends ChangeNotifier {
           cc00: tone.cc00,
           cc32: tone.cc32,
           pc: tone.pc,
-          channel: _channel,
+          channel: presetChannel,
         );
       }
     }
 
     _midi.sendMasterVolume(s.masterVolume);
 
+    _midi.sendCc(cc: 73, value: s.ccAttack, channel: presetChannel);
+    _midi.sendCc(cc: 72, value: s.ccRelease, channel: presetChannel);
+    _midi.sendCc(cc: 91, value: s.ccReverb, channel: presetChannel);
+    _midi.sendCc(cc: 93, value: s.ccChorus, channel: presetChannel);
+    _midi.sendCc(cc: 11, value: s.ccExpr, channel: presetChannel);
+    _midi.sendCc(cc: 10, value: s.ccPan, channel: presetChannel);
+
     _midi.sendPartReverbSend(
-      channel: _channel,
+      channel: presetChannel,
       value: s.reverbOn ? AppState.reverbSend : 0,
     );
     if (s.reverbOn) {
-      _midi.sendReverb(param: 0, value: s.reverbType);
-      _midi.sendReverb(param: 1, value: s.reverbTime);
+      _sendReverbParams();
     }
 
     _midi.sendPartChorusSend(
-      channel: _channel,
+      channel: presetChannel,
       value: s.chorusOn ? s.chorusSend : 0,
     );
     if (s.chorusOn) {
       _sendChorusParams();
     }
 
-    _midi.sendPartMfxAssign(channel: _channel, value: s.mfxOn ? 1 : 0);
+    _midi.sendPartMfxAssign(channel: presetChannel, value: s.mfxOn ? 1 : 0);
     if (s.mfxOn) {
       _midi.sendMfx(offset: 0x00, value: s.mfxType);
       _midi.sendMfx(offset: catalog.effects.mfxBalanceOffset, value: s.mfxBalance);

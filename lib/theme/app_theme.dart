@@ -96,6 +96,7 @@ class AppTheme {
   final Color textDim;
   final Color headerBg;
 
+  /// Original cool palette (mint/blue on near-black surfaces).
   static const AppTheme studio = AppTheme(
     uiFont: 'Inter',
     displayFont: 'Inter',

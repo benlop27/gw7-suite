@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'models/app_state.dart';
 import 'models/tone_catalog.dart';
 import 'services/app_controller.dart';
 import 'theme/app_theme.dart';
@@ -96,7 +95,7 @@ class _PresetScreenState extends State<PresetScreen> {
               Expanded(
                 child: _lcd(
                   text: tone != null
-                      ? 'ch${_controller.channel + 1} · ${tone.name}'
+                      ? 'ch${_controller.presetChannel + 1} · ${tone.name}'
                       : '—',
                 ),
               ),
@@ -109,70 +108,8 @@ class _PresetScreenState extends State<PresetScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: _toneGrid(bank)),
-                _volumeRail(state),
+                Expanded(child: _toneGrid(bank, state.presetBankIndex)),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _volumeRail(AppState state) {
-    final theme = Gw7Theme.of(context);
-    return Container(
-      width: 64,
-      margin: const EdgeInsets.only(left: 12),
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.border),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Column(
-        children: [
-          Text(
-            'VOL',
-            style: TextStyle(
-              fontFamily: Gw7Fonts.of(context).mono,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-              color: theme.textDim,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Icon(Icons.volume_up_rounded, size: 20, color: theme.textDim),
-          const SizedBox(height: 6),
-          Expanded(
-            child: RotatedBox(
-              quarterTurns: 3,
-              child: SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  trackHeight: 10,
-                  thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 14,
-                  ),
-                  overlayShape: const RoundSliderOverlayShape(
-                    overlayRadius: 28,
-                  ),
-                ),
-                child: Slider(
-                  value: state.masterVolume.toDouble(),
-                  min: 0,
-                  max: 127,
-                  onChanged: (v) => _controller.setMasterVolume(v.round()),
-                ),
-              ),
-            ),
-          ),
-          Text(
-            '${state.masterVolume}',
-            style: TextStyle(
-              fontFamily: Gw7Fonts.of(context).mono,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: theme.textDim,
             ),
           ),
         ],
@@ -203,6 +140,9 @@ class _PresetScreenState extends State<PresetScreen> {
           fontWeight: FontWeight.w700,
           fontSize: big ? 22 : 13,
           color: theme.primary,
+          shadows: [
+            Shadow(color: theme.primary.withValues(alpha: 0.4), blurRadius: 10),
+          ],
         ),
       ),
     );
@@ -226,7 +166,7 @@ class _PresetScreenState extends State<PresetScreen> {
                 final idx = r * rowCount + i;
                 final bank = banks[idx];
                 final active = idx == _controller.state.presetBankIndex;
-                return GestureDetector(
+                return _Pressable(
                   onTap: () => _controller.selectBank(idx),
                   child: Container(
                     alignment: Alignment.center,
@@ -284,7 +224,7 @@ class _PresetScreenState extends State<PresetScreen> {
     );
   }
 
-  Widget _toneGrid(ToneBank bank) {
+  Widget _toneGrid(ToneBank bank, int bankIndex) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -313,7 +253,9 @@ class _PresetScreenState extends State<PresetScreen> {
             itemBuilder: (context, idx) {
               final tone = bank.tones[idx];
               final selected = idx == _controller.state.presetToneIndex;
-              return GestureDetector(
+              final favorite =
+                  _controller.isFavorite(bankIndex: bankIndex, toneIndex: idx);
+              return _Pressable(
                 onTap: () => _selectTone(bank, tone, idx),
                 child: Container(
                   decoration: BoxDecoration(
@@ -337,28 +279,53 @@ class _PresetScreenState extends State<PresetScreen> {
                           ]
                         : null,
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Stack(
                     children: [
-                      Text(
-                        '${tone.no}',
-                        style: TextStyle(
-                          fontFamily: Gw7Fonts.of(context).mono,
-                          fontSize: math.max(12, width / cols / 10),
-                          fontWeight: FontWeight.w700,
-                          color: selected ? theme.primary : theme.text,
-                        ),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${tone.no}',
+                            style: TextStyle(
+                              fontFamily: Gw7Fonts.of(context).mono,
+                              fontSize: math.max(12, width / cols / 10),
+                              fontWeight: FontWeight.w700,
+                              color: selected ? theme.primary : theme.text,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              tone.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: Gw7Fonts.of(context).ui,
+                                fontSize: math.max(10, width / cols / 13),
+                                color: selected ? theme.primary : theme.textDim,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 2),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          tone.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: Gw7Fonts.of(context).ui,
-                            fontSize: math.max(10, width / cols / 13),
-                            color: selected ? theme.primary : theme.textDim,
+                      Positioned(
+                        top: 2,
+                        right: 2,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _controller.toggleFavorite(
+                            bankIndex: bankIndex,
+                            toneIndex: idx,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(
+                              favorite
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
+                              size: 15,
+                              color: favorite ? theme.primary : theme.textDim,
+                            ),
                           ),
                         ),
                       ),
@@ -370,6 +337,40 @@ class _PresetScreenState extends State<PresetScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Pressable wrapper echoing the web manager's `button:active` feedback
+/// (a small "push-in" on tap-down).
+class _Pressable extends StatefulWidget {
+  const _Pressable({required this.onTap, required this.child});
+
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  State<_Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<_Pressable> {
+  bool _down = false;
+
+  void _setDown(bool down) => setState(() => _down = down);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: (_) => _setDown(true),
+      onTapUp: (_) => _setDown(false),
+      onTapCancel: () => _setDown(false),
+      child: AnimatedScale(
+        scale: _down ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 90),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
     );
   }
 }

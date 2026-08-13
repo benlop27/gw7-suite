@@ -6463,10 +6463,16 @@
       "encode": "14-bit: v = round(cents*81.92 + 8192), 0-16383"
     },
     "reverb": {
-      "message": "F0 7F 7F 04 05 01 01 01 01 01 <pp> <vv> F7",
+      "address": "40 01 30-37",
+      "message": "DT1 F0 41 dev 42 12 40 01 3<off> <v> <sum> F7",
       "params": {
         "type": 0,
-        "time": 1
+        "time": 4,
+        "level": 3,
+        "predelay": 7,
+        "character": 1,
+        "pre_lpf": 2,
+        "delay_feedback": 5
       },
       "types": {
         "room1": 0,
@@ -6474,18 +6480,24 @@
         "room3": 2,
         "hall1": 3,
         "hall2": 4,
-        "plate": 8
+        "plate": 5,
+        "delay": 6,
+        "panning_delay": 7
       },
-      "range": "type: room1=0 room2=1 room3=2 hall1=3 hall2=4 plate=8; value 0-127"
+      "range": "type: delay=6 hall1=3 hall2=4 panning_delay=7 plate=5 room1=0 room2=1 room3=2; value 0-127"
     },
     "chorus": {
-      "message": "F0 7F 7F 04 05 01 01 01 01 02 <pp> <vv> F7",
+      "address": "40 01 38-3F",
+      "message": "DT1 F0 41 dev 42 12 40 01 3<off> <v> <sum> F7",
       "params": {
         "type": 0,
-        "rate": 1,
-        "depth": 2,
+        "rate": 5,
+        "depth": 6,
         "feedback": 3,
-        "send": 4
+        "send": 7,
+        "level": 2,
+        "pre_lpf": 1,
+        "delay": 4
       },
       "types": {
         "chorus1": 0,
@@ -6493,9 +6505,11 @@
         "chorus3": 2,
         "chorus4": 3,
         "fb": 4,
-        "flanger": 5
+        "flanger": 5,
+        "short_delay": 6,
+        "short_delay_fb": 7
       },
-      "range": "type: chorus1=0 chorus2=1 chorus3=2 chorus4=3 fb=4 flanger=5; value 0-127"
+      "range": "type: chorus1=0 chorus2=1 chorus3=2 chorus4=3 fb=4 flanger=5 short_delay=6 short_delay_fb=7; value 0-127"
     },
     "cc_map": {
       "channel_pressure": {
@@ -6533,7 +6547,7 @@
         "offset": 20,
         "encode": "assign",
         "range": "single|limited|full",
-        "address": "40 1x 14 (backing/keyboard) | 50 1x 14 (song); x=channel nibble",
+        "address": "50 1x 14 (backing/keyboard) | 40 1x 14 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6541,7 +6555,7 @@
         "offset": 31,
         "encode": "u95",
         "range": "CC number 0-95",
-        "address": "40 1x 1F (backing/keyboard) | 50 1x 1F (song); x=channel nibble",
+        "address": "50 1x 1F (backing/keyboard) | 40 1x 1F (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6549,7 +6563,7 @@
         "offset": 32,
         "encode": "u95",
         "range": "CC number 0-95",
-        "address": "40 1x 20 (backing/keyboard) | 50 1x 20 (song); x=channel nibble",
+        "address": "50 1x 20 (backing/keyboard) | 40 1x 20 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6557,7 +6571,7 @@
         "offset": 33,
         "encode": "u8",
         "range": "0-127",
-        "address": "40 1x 21 (backing/keyboard) | 50 1x 21 (song); x=channel nibble",
+        "address": "50 1x 21 (backing/keyboard) | 40 1x 21 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6565,7 +6579,7 @@
         "offset": 30,
         "encode": "u8",
         "range": "note 0-127",
-        "address": "40 1x 1E (backing/keyboard) | 50 1x 1E (song); x=channel nibble",
+        "address": "50 1x 1E (backing/keyboard) | 40 1x 1E (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6573,7 +6587,7 @@
         "offset": 29,
         "encode": "u8",
         "range": "note 0-127",
-        "address": "40 1x 1D (backing/keyboard) | 50 1x 1D (song); x=channel nibble",
+        "address": "50 1x 1D (backing/keyboard) | 40 1x 1D (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6581,7 +6595,7 @@
         "offset": 22,
         "encode": "key",
         "range": "-24..+24 semitones",
-        "address": "40 1x 16 (backing/keyboard) | 50 1x 16 (song); x=channel nibble",
+        "address": "50 1x 16 (backing/keyboard) | 40 1x 16 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6589,7 +6603,7 @@
         "offset": 25,
         "encode": "u8",
         "range": "0-127",
-        "address": "40 1x 19 (backing/keyboard) | 50 1x 19 (song); x=channel nibble",
+        "address": "50 1x 19 (backing/keyboard) | 40 1x 19 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6597,7 +6611,7 @@
         "offset": 19,
         "encode": "mp",
         "range": "mono|poly",
-        "address": "40 1x 13 (backing/keyboard) | 50 1x 13 (song); x=channel nibble",
+        "address": "50 1x 13 (backing/keyboard) | 40 1x 13 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6605,7 +6619,7 @@
         "offset": 28,
         "encode": "pan",
         "range": "-64(random)..+63",
-        "address": "40 1x 1C (backing/keyboard) | 50 1x 1C (song); x=channel nibble",
+        "address": "50 1x 1C (backing/keyboard) | 40 1x 1C (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6613,7 +6627,7 @@
         "offset": 34,
         "encode": "u8",
         "range": "0-127",
-        "address": "40 1x 22 (backing/keyboard) | 50 1x 22 (song); x=channel nibble",
+        "address": "50 1x 22 (backing/keyboard) | 40 1x 22 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6621,7 +6635,7 @@
         "offset": 21,
         "encode": "rhythm",
         "range": "off|map1|map2",
-        "address": "40 1x 15 (backing/keyboard) | 50 1x 15 (song); x=channel nibble",
+        "address": "50 1x 15 (backing/keyboard) | 40 1x 15 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6629,7 +6643,7 @@
         "offset": 35,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 23 (backing/keyboard) | 50 1x 23 (song); x=channel nibble",
+        "address": "50 1x 23 (backing/keyboard) | 40 1x 23 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6637,7 +6651,7 @@
         "offset": 36,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 24 (backing/keyboard) | 50 1x 24 (song); x=channel nibble",
+        "address": "50 1x 24 (backing/keyboard) | 40 1x 24 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6645,7 +6659,7 @@
         "offset": 4,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 04 (backing/keyboard) | 50 1x 04 (song); x=channel nibble",
+        "address": "50 1x 04 (backing/keyboard) | 40 1x 04 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6653,7 +6667,7 @@
         "offset": 2,
         "encode": "channel",
         "range": "1-16 or 'off'",
-        "address": "40 1x 02 (backing/keyboard) | 50 1x 02 (song); x=channel nibble",
+        "address": "50 1x 02 (backing/keyboard) | 40 1x 02 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6661,7 +6675,7 @@
         "offset": 6,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 06 (backing/keyboard) | 50 1x 06 (song); x=channel nibble",
+        "address": "50 1x 06 (backing/keyboard) | 40 1x 06 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6669,7 +6683,7 @@
         "offset": 14,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 0E (backing/keyboard) | 50 1x 0E (song); x=channel nibble",
+        "address": "50 1x 0E (backing/keyboard) | 40 1x 0E (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6677,7 +6691,7 @@
         "offset": 15,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 0F (backing/keyboard) | 50 1x 0F (song); x=channel nibble",
+        "address": "50 1x 0F (backing/keyboard) | 40 1x 0F (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6685,7 +6699,7 @@
         "offset": 11,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 0B (backing/keyboard) | 50 1x 0B (song); x=channel nibble",
+        "address": "50 1x 0B (backing/keyboard) | 40 1x 0B (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6693,7 +6707,7 @@
         "offset": 8,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 08 (backing/keyboard) | 50 1x 08 (song); x=channel nibble",
+        "address": "50 1x 08 (backing/keyboard) | 40 1x 08 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6701,7 +6715,7 @@
         "offset": 10,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 0A (backing/keyboard) | 50 1x 0A (song); x=channel nibble",
+        "address": "50 1x 0A (backing/keyboard) | 40 1x 0A (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6709,7 +6723,7 @@
         "offset": 13,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 0D (backing/keyboard) | 50 1x 0D (song); x=channel nibble",
+        "address": "50 1x 0D (backing/keyboard) | 40 1x 0D (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6717,7 +6731,7 @@
         "offset": 3,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 03 (backing/keyboard) | 50 1x 03 (song); x=channel nibble",
+        "address": "50 1x 03 (backing/keyboard) | 40 1x 03 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6725,7 +6739,7 @@
         "offset": 7,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 07 (backing/keyboard) | 50 1x 07 (song); x=channel nibble",
+        "address": "50 1x 07 (backing/keyboard) | 40 1x 07 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6733,7 +6747,7 @@
         "offset": 16,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 10 (backing/keyboard) | 50 1x 10 (song); x=channel nibble",
+        "address": "50 1x 10 (backing/keyboard) | 40 1x 10 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6741,7 +6755,7 @@
         "offset": 5,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 05 (backing/keyboard) | 50 1x 05 (song); x=channel nibble",
+        "address": "50 1x 05 (backing/keyboard) | 40 1x 05 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6749,7 +6763,7 @@
         "offset": 9,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 09 (backing/keyboard) | 50 1x 09 (song); x=channel nibble",
+        "address": "50 1x 09 (backing/keyboard) | 40 1x 09 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6757,7 +6771,7 @@
         "offset": 18,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 12 (backing/keyboard) | 50 1x 12 (song); x=channel nibble",
+        "address": "50 1x 12 (backing/keyboard) | 40 1x 12 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6765,7 +6779,7 @@
         "offset": 17,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 11 (backing/keyboard) | 50 1x 11 (song); x=channel nibble",
+        "address": "50 1x 11 (backing/keyboard) | 40 1x 11 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6773,7 +6787,7 @@
         "offset": 12,
         "encode": "onoff",
         "range": "on/off",
-        "address": "40 1x 0C (backing/keyboard) | 50 1x 0C (song); x=channel nibble",
+        "address": "50 1x 0C (backing/keyboard) | 40 1x 0C (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6781,7 +6795,7 @@
         "offset": 73,
         "encode": "rel",
         "range": "-64..+63 cents",
-        "address": "40 1x 49 (backing/keyboard) | 50 1x 49 (song); x=channel nibble",
+        "address": "50 1x 49 (backing/keyboard) | 40 1x 49 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6789,7 +6803,7 @@
         "offset": 74,
         "encode": "rel",
         "range": "-64..+63 cents",
-        "address": "40 1x 4A (backing/keyboard) | 50 1x 4A (song); x=channel nibble",
+        "address": "50 1x 4A (backing/keyboard) | 40 1x 4A (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6797,7 +6811,7 @@
         "offset": 75,
         "encode": "rel",
         "range": "-64..+63 cents",
-        "address": "40 1x 4B (backing/keyboard) | 50 1x 4B (song); x=channel nibble",
+        "address": "50 1x 4B (backing/keyboard) | 40 1x 4B (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6805,7 +6819,7 @@
         "offset": 64,
         "encode": "rel",
         "range": "-64..+63 cents",
-        "address": "40 1x 40 (backing/keyboard) | 50 1x 40 (song); x=channel nibble",
+        "address": "50 1x 40 (backing/keyboard) | 40 1x 40 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6813,7 +6827,7 @@
         "offset": 65,
         "encode": "rel",
         "range": "-64..+63 cents",
-        "address": "40 1x 41 (backing/keyboard) | 50 1x 41 (song); x=channel nibble",
+        "address": "50 1x 41 (backing/keyboard) | 40 1x 41 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6821,7 +6835,7 @@
         "offset": 66,
         "encode": "rel",
         "range": "-64..+63 cents",
-        "address": "40 1x 42 (backing/keyboard) | 50 1x 42 (song); x=channel nibble",
+        "address": "50 1x 42 (backing/keyboard) | 40 1x 42 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6829,7 +6843,7 @@
         "offset": 67,
         "encode": "rel",
         "range": "-64..+63 cents",
-        "address": "40 1x 43 (backing/keyboard) | 50 1x 43 (song); x=channel nibble",
+        "address": "50 1x 43 (backing/keyboard) | 40 1x 43 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6837,7 +6851,7 @@
         "offset": 68,
         "encode": "rel",
         "range": "-64..+63 cents",
-        "address": "40 1x 44 (backing/keyboard) | 50 1x 44 (song); x=channel nibble",
+        "address": "50 1x 44 (backing/keyboard) | 40 1x 44 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6845,7 +6859,7 @@
         "offset": 69,
         "encode": "rel",
         "range": "-64..+63 cents",
-        "address": "40 1x 45 (backing/keyboard) | 50 1x 45 (song); x=channel nibble",
+        "address": "50 1x 45 (backing/keyboard) | 40 1x 45 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6853,7 +6867,7 @@
         "offset": 70,
         "encode": "rel",
         "range": "-64..+63 cents",
-        "address": "40 1x 46 (backing/keyboard) | 50 1x 46 (song); x=channel nibble",
+        "address": "50 1x 46 (backing/keyboard) | 40 1x 46 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6861,7 +6875,7 @@
         "offset": 71,
         "encode": "rel",
         "range": "-64..+63 cents",
-        "address": "40 1x 47 (backing/keyboard) | 50 1x 47 (song); x=channel nibble",
+        "address": "50 1x 47 (backing/keyboard) | 40 1x 47 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6869,7 +6883,7 @@
         "offset": 72,
         "encode": "rel",
         "range": "-64..+63 cents",
-        "address": "40 1x 48 (backing/keyboard) | 50 1x 48 (song); x=channel nibble",
+        "address": "50 1x 48 (backing/keyboard) | 40 1x 48 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6877,7 +6891,7 @@
         "offset": 48,
         "encode": "rel",
         "range": "-64..+63",
-        "address": "40 1x 30 (backing/keyboard) | 50 1x 30 (song); x=channel nibble",
+        "address": "50 1x 30 (backing/keyboard) | 40 1x 30 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6885,7 +6899,7 @@
         "offset": 49,
         "encode": "rel",
         "range": "-64..+63",
-        "address": "40 1x 31 (backing/keyboard) | 50 1x 31 (song); x=channel nibble",
+        "address": "50 1x 31 (backing/keyboard) | 40 1x 31 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6893,7 +6907,7 @@
         "offset": 50,
         "encode": "rel",
         "range": "-64..+63",
-        "address": "40 1x 32 (backing/keyboard) | 50 1x 32 (song); x=channel nibble",
+        "address": "50 1x 32 (backing/keyboard) | 40 1x 32 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6901,7 +6915,7 @@
         "offset": 51,
         "encode": "rel",
         "range": "-64..+63",
-        "address": "40 1x 33 (backing/keyboard) | 50 1x 33 (song); x=channel nibble",
+        "address": "50 1x 33 (backing/keyboard) | 40 1x 33 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6909,7 +6923,7 @@
         "offset": 52,
         "encode": "rel",
         "range": "-64..+63",
-        "address": "40 1x 34 (backing/keyboard) | 50 1x 34 (song); x=channel nibble",
+        "address": "50 1x 34 (backing/keyboard) | 40 1x 34 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6917,7 +6931,7 @@
         "offset": 53,
         "encode": "rel",
         "range": "-64..+63",
-        "address": "40 1x 35 (backing/keyboard) | 50 1x 35 (song); x=channel nibble",
+        "address": "50 1x 35 (backing/keyboard) | 40 1x 35 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6925,7 +6939,7 @@
         "offset": 54,
         "encode": "rel",
         "range": "-64..+63",
-        "address": "40 1x 36 (backing/keyboard) | 50 1x 36 (song); x=channel nibble",
+        "address": "50 1x 36 (backing/keyboard) | 40 1x 36 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6933,7 +6947,7 @@
         "offset": 55,
         "encode": "rel",
         "range": "-64..+63",
-        "address": "40 1x 37 (backing/keyboard) | 50 1x 37 (song); x=channel nibble",
+        "address": "50 1x 37 (backing/keyboard) | 40 1x 37 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6941,7 +6955,7 @@
         "offset": 26,
         "encode": "u8",
         "range": "0-127",
-        "address": "40 1x 1A (backing/keyboard) | 50 1x 1A (song); x=channel nibble",
+        "address": "50 1x 1A (backing/keyboard) | 40 1x 1A (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6949,7 +6963,7 @@
         "offset": 27,
         "encode": "u8",
         "range": "0-127",
-        "address": "40 1x 1B (backing/keyboard) | 50 1x 1B (song); x=channel nibble",
+        "address": "50 1x 1B (backing/keyboard) | 40 1x 1B (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb cc <sum> F7"
       },
       {
@@ -6957,7 +6971,7 @@
         "offset": 1,
         "encode": "tone",
         "range": "bank MSB 0-127, program 1-128",
-        "address": "40 1x 01 | 50 1x 01; x=channel nibble",
+        "address": "50 1x 01 (backing/keyboard) | 40 1x 01 (song); x=channel nibble",
         "message": "DT1 F0 41 dev 42 12 aa bb 01 <bank> <program-1> <sum> F7",
         "inferred": true
       }
@@ -7694,8 +7708,8 @@
     ]
   },
   "part_mfx_assign": {
-    "address": "40 4x 22 (x=channel nibble)",
-    "message": "DT1 F0 41 dev 42 12 40 4x 22 <v> <sum> F7",
+    "address": "50 4x 22 (backing/keyboard) | 40 4x 22 (song); x=channel nibble",
+    "message": "DT1 F0 41 dev 42 12 50 4x 22 <v> <sum> F7",
     "values": {
       "bypass": 0,
       "mfx": 1
@@ -7740,95 +7754,118 @@
     "types": [
       {
         "value": 0,
-        "name": "OFF"
+        "name": "OFF",
+        "category": "OFF"
       },
       {
         "value": 1,
-        "name": "ENHANCER"
+        "name": "ENHANCER",
+        "category": "ENHANCER"
       },
       {
         "value": 40,
-        "name": "GATE REV RV"
+        "name": "GATE REV RV",
+        "category": "REVERB"
       },
       {
         "value": 41,
-        "name": "GATE REV S1"
+        "name": "GATE REV S1",
+        "category": "REVERB"
       },
       {
         "value": 42,
-        "name": "GATE REV S2"
+        "name": "GATE REV S2",
+        "category": "REVERB"
       },
       {
         "value": 43,
-        "name": "2PITCH SHIFT"
+        "name": "2PITCH SHIFT",
+        "category": "PITCH"
       },
       {
         "value": 44,
-        "name": "FB PITCH SFT"
+        "name": "FB PITCH SFT",
+        "category": "PITCH"
       },
       {
         "value": 45,
-        "name": "OD>CHORUS"
+        "name": "OD>CHORUS",
+        "category": "DRIVE"
       },
       {
         "value": 46,
-        "name": "OD>FLANGER"
+        "name": "OD>FLANGER",
+        "category": "DRIVE"
       },
       {
         "value": 47,
-        "name": "OD>DELAY"
+        "name": "OD>DELAY",
+        "category": "DRIVE"
       },
       {
         "value": 48,
-        "name": "DS>CHORUS"
+        "name": "DS>CHORUS",
+        "category": "DRIVE"
       },
       {
         "value": 49,
-        "name": "DS>FLANGER"
+        "name": "DS>FLANGER",
+        "category": "DRIVE"
       },
       {
         "value": 50,
-        "name": "DS>DELAY"
+        "name": "DS>DELAY",
+        "category": "DRIVE"
       },
       {
         "value": 51,
-        "name": "EH>CHORUS"
+        "name": "EH>CHORUS",
+        "category": "DRIVE"
       },
       {
         "value": 52,
-        "name": "EH>FLANGER"
+        "name": "EH>FLANGER",
+        "category": "DRIVE"
       },
       {
         "value": 53,
-        "name": "EH>DELAY"
+        "name": "EH>DELAY",
+        "category": "DRIVE"
       },
       {
         "value": 54,
-        "name": "CHO>DELAY"
+        "name": "CHO>DELAY",
+        "category": "MOD/DELAY"
       },
       {
         "value": 55,
-        "name": "FL>DELAY"
+        "name": "FL>DELAY",
+        "category": "MOD/DELAY"
       },
       {
         "value": 56,
-        "name": "CHO>FLANGER"
+        "name": "CHO>FLANGER",
+        "category": "MOD/DELAY"
       },
       {
         "value": 57,
-        "name": "CHO/DELAY"
+        "name": "CHO/DELAY",
+        "category": "MOD/DELAY"
       },
       {
         "value": 58,
-        "name": "FL/DELAY"
+        "name": "FL/DELAY",
+        "category": "MOD/DELAY"
       },
       {
         "value": 59,
-        "name": "CHO/FLANGER"
+        "name": "CHO/FLANGER",
+        "category": "MOD/DELAY"
       },
       {
         "value": 60,
-        "name": "STEREO EQ"
+        "name": "STEREO EQ",
+        "category": "EQ"
       }
     ]
   },

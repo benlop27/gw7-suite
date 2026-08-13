@@ -48,9 +48,14 @@ void main() {
   test('effects catalog: reverb/chorus/MFX types parsed', () async {
     final catalog = await ToneCatalog.load();
     final fx = catalog.effects;
-    expect(fx.reverbTypes.any((n) => n.name == 'plate' && n.value == 8), true);
+    expect(fx.reverbTypes.any((n) => n.name == 'plate' && n.value == 5), true);
+    expect(fx.reverbTypes.any((n) => n.name == 'delay' && n.value == 6), true);
     expect(
       fx.chorusTypes.any((n) => n.name == 'flanger' && n.value == 5),
+      true,
+    );
+    expect(
+      fx.chorusTypes.any((n) => n.name == 'short_delay_fb' && n.value == 7),
       true,
     );
     expect(fx.mfxTypes.length, 23);
@@ -65,14 +70,38 @@ void main() {
     final d = AppState.defaults();
     expect(d.masterVolume, 100);
     expect(d.chorusSend, 40);
+    expect(d.reverbType, 4);
+    expect(d.reverbTime, 64);
+    expect(d.reverbLevel, 64);
+    expect(d.chorusType, 2);
+    expect(d.chorusLevel, 64);
     expect(d.presetToneIndex, null);
+    expect(d.favoritePresets, isEmpty);
+    expect(d.ccAttack, 64);
+    expect(d.ccRelease, 64);
+    expect(d.ccReverb, 45);
+    expect(d.ccChorus, 0);
+    expect(d.ccExpr, 127);
+    expect(d.ccPan, 64);
 
     final custom = d.copyWith(
       presetBankIndex: 12,
       presetToneIndex: () => 7,
+      favoritePresets: const [
+        PresetRef(3, 0),
+        PresetRef(12, 7),
+      ],
+      ccAttack: 80,
+      ccRelease: 40,
+      ccReverb: 30,
+      ccChorus: 60,
+      ccExpr: 100,
+      ccPan: 20,
       reverbOn: true,
-      reverbType: 8,
+      reverbType: 4,
+      reverbPredelay: 20,
       chorusSend: 64,
+      chorusLevel: 80,
       mfxType: 11,
       mfxBalance: 50,
       masterVolume: 80,
@@ -80,9 +109,18 @@ void main() {
     final round = AppState.fromJson(custom.toJson());
     expect(round.presetBankIndex, 12);
     expect(round.presetToneIndex, 7);
+    expect(round.favoritePresets, [PresetRef(3, 0), PresetRef(12, 7)]);
+    expect(round.ccAttack, 80);
+    expect(round.ccRelease, 40);
+    expect(round.ccReverb, 30);
+    expect(round.ccChorus, 60);
+    expect(round.ccExpr, 100);
+    expect(round.ccPan, 20);
     expect(round.reverbOn, true);
-    expect(round.reverbType, 8);
+    expect(round.reverbType, 4);
+    expect(round.reverbPredelay, 20);
     expect(round.chorusSend, 64);
+    expect(round.chorusLevel, 80);
     expect(round.mfxType, 11);
     expect(round.mfxBalance, 50);
     expect(round.masterVolume, 80);
@@ -90,5 +128,6 @@ void main() {
     final cleared = round.copyWith(presetToneIndex: () => null);
     expect(cleared.presetToneIndex, null);
     expect(cleared.masterVolume, 80);
+    expect(cleared.favoritePresets, [PresetRef(3, 0), PresetRef(12, 7)]);
   });
 }

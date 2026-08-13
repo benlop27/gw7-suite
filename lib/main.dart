@@ -6,6 +6,9 @@ import 'models/tone_catalog.dart';
 import 'preset_screen.dart';
 import 'services/app_controller.dart';
 import 'services/midi_service.dart';
+import 'services/web_debug_stub.dart'
+    if (dart.library.js_interop) 'services/web_debug.dart';
+import 'stage_screen.dart';
 import 'theme/app_theme.dart';
 import 'utils_screen.dart';
 
@@ -20,7 +23,7 @@ class Gw7App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'GW-7 Presets',
+      title: 'GW-7 Studio',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.studio.buildTheme(),
       home: const HomeScreen(),
@@ -51,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _load();
     _controller.load();
+    exposeWebDebug(_midi);
     _midi.onSetupChanged?.listen((change) {
       if (!mounted) return;
       _refreshDevices();
@@ -201,6 +205,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       : IndexedStack(
                           index: _tab,
                           children: [
+                            StageScreen(
+                              catalog: catalog,
+                              controller: _controller,
+                            ),
                             PresetScreen(
                               catalog: catalog,
                               controller: _controller,
@@ -212,7 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             UtilsScreen(
                               catalog: catalog,
                               midi: _midi,
-                              channel: _channel,
+                              controller: _controller,
                             ),
                           ],
                         ),
@@ -228,6 +236,11 @@ class _HomeScreenState extends State<HomeScreen> {
               selectedIndex: _tab,
               onDestinationSelected: (i) => setState(() => _tab = i),
               destinations: [
+                NavigationDestination(
+                  icon: const Icon(Icons.star_outline_rounded),
+                  selectedIcon: const Icon(Icons.star_rounded),
+                  label: 'Stage',
+                ),
                 NavigationDestination(
                   icon: const Icon(Icons.piano_outlined),
                   selectedIcon: const Icon(Icons.piano),
@@ -256,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, constraints) {
           final narrow = constraints.maxWidth < 560;
           final title = Text(
-            'GW-7',
+            'GW-7 STUDIO',
             style: TextStyle(
               fontFamily: Gw7Fonts.of(context).display,
               fontSize: 18,
@@ -266,7 +279,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
           final subtitle = Text(
-            _tab == 0 ? 'PRESETS' : _tab == 1 ? 'EFFECTS' : 'UTILS',
+            _tab == 0
+                ? 'STAGE'
+                : _tab == 1
+                    ? 'PRESETS'
+                    : _tab == 2
+                        ? 'EFFECTS'
+                        : 'UTILS',
             style: TextStyle(
               fontFamily: Gw7Fonts.of(context).mono,
               fontSize: 11,
