@@ -6,6 +6,22 @@ the GW-7's 657 factory tones (606 tones + 51 drum kits, 23 category banks),
 controls quick effects (CC), the master volume, favourite presets and the
 backing-track transport.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/01_stage_connected.png" width="47%" alt="Stage — favourites & volume"/>
+  <img src="docs/screenshots/02_presets_tone.png" width="47%" alt="Presets — tone selection"/>
+  <br/>
+  <em>Stage tab (favourites + master volume) · Presets tab (23 banks, 657 tones)</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/03_effects.png" width="47%" alt="Effects — quick CC controls"/>
+  <img src="docs/screenshots/04_utils.png" width="47%" alt="Utils — backing track & transport"/>
+  <br/>
+  <em>Effects tab (quick CC sliders) · Utils tab (backing-track styles + transport)</em>
+</p>
+
 ## Features
 
 - **Stage tab** — favourite presets (starred on Presets) + master volume rail.
