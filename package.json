@@ -1,0 +1,28 @@
+{
+  "name": "gw7_flutter",
+  "version": "1.0.0",
+  "description": "GW-7 Studio — control surface for the Roland GW-7. Tones, quick CC effects, master volume, favourites and backing-track transport over USB MIDI (Android) or Web MIDI via the BLE bridge (browser).",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/benlop27/gw7-suite.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/benlop27/gw7-suite/issues"
+  },
+  "homepage": "https://github.com/benlop27/gw7-suite#readme",
+  "devDependencies": {
+    "cypress": "^15.20.1"
+  }
+}
