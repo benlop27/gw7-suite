@@ -21,9 +21,9 @@ backing-track transport.
 Send path per tone: `B0 <ch> 00 <cc00>` (bank MSB) · `B0 <ch> 20 <cc32>`
 (bank LSB) · `C0 <ch> <pc-1>` (program change). Channel is 4 by default.
 
-> 📖 **User guides (with screenshots):**
-> - 🇬🇧 English — [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
-> - 🇪🇸 Español — [`docs/GUIA_DE_USO.md`](docs/GUIA_DE_USO.md)
+> 📘 **User guides:**
+> - 🇬🇧 **English (PDF):** [`docs/GW7_Studio_User_Guide_EN.pdf`](docs/GW7_Studio_User_Guide_EN.pdf) · Markdown: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
+> - 🇪🇸 **Español (PDF):** [`docs/GW7_Studio_Guia_ES.pdf`](docs/GW7_Studio_Guia_ES.pdf) · Markdown: [`docs/GUIA_DE_USO.md`](docs/GUIA_DE_USO.md)
 
 > **Disclaimer:** This is an independent, unofficial project. It is not
 > affiliated with, endorsed by, or sponsored by Roland Corporation. "GW-7" is a
