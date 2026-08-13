@@ -1,4 +1,4 @@
-# GW-7 Studio (gw7_flutter)
+# GW-7 Studio
 
 Control surface for the **Roland GW-7** arranger keyboard — runs on Android
 (USB MIDI) and as a web app (Web MIDI over a Bluetooth bridge). Selects any of
