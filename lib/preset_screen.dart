@@ -81,25 +81,36 @@ class _PresetScreenState extends State<PresetScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _lcd(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final lcds = [
+                _lcd(
                   text: tone != null
                       ? '${bank.name} ${(state.presetToneIndex! + 1).toString().padLeft(3, '0')}'
                       : '— / —',
                   big: true,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _lcd(
+                const SizedBox(height: 8),
+                _lcd(
                   text: tone != null
                       ? 'ch${_controller.presetChannel + 1} · ${tone.name}'
                       : '—',
                 ),
-              ),
-            ],
+              ];
+              if (constraints.maxWidth < 560) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: lcds,
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: lcds[0]),
+                  const SizedBox(width: 12),
+                  Expanded(child: lcds[2]),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 14),
           _bankTabs(catalog),

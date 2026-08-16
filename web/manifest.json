@@ -6,7 +6,7 @@
     "background_color": "#14151A",
     "theme_color": "#14151A",
     "description": "GW-7 Studio — control surface for the Roland GW-7.",
-    "orientation": "landscape",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
