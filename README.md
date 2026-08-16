@@ -22,6 +22,12 @@ backing-track transport.
   <em>Effects tab (quick CC sliders) · Utils tab (backing-track styles + transport)</em>
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/06_android_portrait.png" width="30%" alt="Android — portrait orientation"/>
+  <br/>
+  <em>Android, portrait orientation</em>
+</p>
+
 ## Features
 
 - **Stage tab** — favourite presets (starred on Presets) + master volume rail.
